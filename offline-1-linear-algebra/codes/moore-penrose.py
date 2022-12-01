@@ -43,6 +43,7 @@ if __name__ == '__main__':
 
     # moore-penrose pseudo inverse using svd
     singular_values_matrix_plus = np.zeros((m, n))
+    # m x n cause pseudo-inverse
     np.fill_diagonal(singular_values_matrix_plus, [
                      1/i if i != 0 else 0 for i in singular_values])
     mat_A_pinv_svd = np.matmul(right_singular_vectors_T.T, np.matmul(
