@@ -10,9 +10,10 @@ MAX_INT = 20
 def rand_inv_matrix(n):
     mat = None
     det = 0
-    while det == 0:
+    while True:
         mat = np.random.randint(MAX_INT, size=(n, n))
-        det = np.linalg.det(mat)
+        if np.linalg.det(mat) != 0:
+            break
     return mat
 
 
