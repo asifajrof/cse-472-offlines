@@ -8,7 +8,7 @@ MAX_INT = 20
 
 
 def rand_matrix(n, m):
-    mat = np.random.randint(MAX_INT, size=(n, m))
+    mat = np.random.randint(-MAX_INT, MAX_INT, size=(n, m))
     return mat
 
 

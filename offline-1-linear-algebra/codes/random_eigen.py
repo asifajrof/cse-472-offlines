@@ -11,7 +11,7 @@ def rand_inv_matrix(n):
     mat = None
     det = 0
     while True:
-        mat = np.random.randint(MAX_INT, size=(n, n))
+        mat = np.random.randint(-MAX_INT, MAX_INT, size=(n, n))
         if np.linalg.det(mat) != 0:
             break
     return mat
