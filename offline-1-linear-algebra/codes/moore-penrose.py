@@ -49,3 +49,7 @@ if __name__ == '__main__':
     mat_A_pinv_svd = np.matmul(right_singular_vectors_T.T, np.matmul(
         singular_values_matrix_plus, left_singular_vectors.T))
     print(f'Matrix A pseudo inverse (using svd): {mat_A_pinv_svd}')
+
+    # check if mat_A_pinv == mat_A_pinv_svd
+    print(
+        f'Are these two pseudo inverse equal? {np.allclose(mat_A_pinv, mat_A_pinv_svd)}')
