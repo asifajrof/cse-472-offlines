@@ -16,6 +16,7 @@ def rand_matrix(n, m):
 if __name__ == '__main__':
     n = int(input('Enter the dimension n of the matrix: '))
     m = int(input('Enter the dimension m of the matrix: '))
+
     mat_A = rand_matrix(n, m)
     print(f'Matrix A: {mat_A}')
 
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     singular_values_matrix_plus = np.zeros((m, n))
     # m x n cause pseudo-inverse
     np.fill_diagonal(singular_values_matrix_plus, [
-                     1/i if i != 0 else 0 for i in singular_values])
+                     1/i if not np.allclose(i, 0) else 0 for i in singular_values])
     mat_A_pinv_svd = np.matmul(right_singular_vectors_T.T, np.matmul(
         singular_values_matrix_plus, left_singular_vectors.T))
     print(f'Matrix A pseudo inverse (using svd): {mat_A_pinv_svd}')
