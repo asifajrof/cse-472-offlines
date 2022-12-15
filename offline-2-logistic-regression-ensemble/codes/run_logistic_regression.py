@@ -8,14 +8,13 @@ from metrics import accuracy, precision_score, recall_score, f1_score
 import sys
 
 alpha = 0.02
-max_iter = 2000
+max_iter = 1500
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('Usage: python run_logistic_regression.py <csv_path>')
         sys.exit(1)
     csv_path = sys.argv[1]
-    verbose = False
 
     # data load
     X, y = load_dataset(csv_path=csv_path)
@@ -25,20 +24,16 @@ if __name__ == '__main__':
 
     # training
     classifier = LogisticRegression(
-        alpha=alpha, max_iter=max_iter, verbose=verbose)
+        alpha=alpha, max_iter=max_iter)
     classifier.fit(X_train, y_train)
 
     # testing
     y_pred = classifier.predict(X_test)
 
-    if verbose:
-        print("y_pred: ", y_pred)
-        print("y_test: ", y_test)
-        print("y_pred.shape: ", y_pred.shape)
-        print("y_test.shape: ", y_test.shape)
+    # print("y_pred: ", y_pred)
+    # print("y_test: ", y_test)
 
     # performance on test set
-
     print('Accuracy ', accuracy(y_true=y_test, y_pred=y_pred))
     print('Recall score ', recall_score(y_true=y_test, y_pred=y_pred))
     print('Precision score ', precision_score(y_true=y_test, y_pred=y_pred))

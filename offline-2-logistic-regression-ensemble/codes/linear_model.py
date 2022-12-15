@@ -1,8 +1,9 @@
 import numpy as np
+from tqdm import tqdm
 
 
 class LogisticRegression:
-    def __init__(self, alpha, max_iter, verbose=False):
+    def __init__(self, alpha, max_iter):
         """
         figure out necessary params to take as input
         :param float alpha: learning rate
@@ -11,13 +12,8 @@ class LogisticRegression:
         # todo: implement
         self.alpha = alpha
         self.max_iter = max_iter
-        self.verbose = verbose
         self.theta = None
-        if self.verbose:
-            print("Logistic Regression initialized")
-            print("alpha: ", self.alpha)
-            print("max_iter: ", self.max_iter)
-            print("theta: ", self.theta)
+        # self.intial_theta_value = 0.5
 
     def fit(self, X, y):
         """
@@ -25,9 +21,6 @@ class LogisticRegression:
         :param y:
         :return: self
         """
-        if self.verbose:
-            print("Logistic Regression fit started")
-
         def sigmoid(x):
             return 1 / (1 + np.exp(-x))
 
@@ -41,32 +34,31 @@ class LogisticRegression:
             return h
 
         def J_theta(theta, X, y):
-            return np.mean(-y * np.log(h_theta(theta, X)) - (1 - y) * np.log(1 - h_theta(theta, X)))
+            m = X.shape[0]
+            return np.sum(-y * np.log(h_theta(theta, X)) - (1 - y) * np.log(1 - h_theta(theta, X)))/m
 
         def gradient_descent(theta, X, y):
             min_cost = 1e10
 
-            for iter in range(self.max_iter):
+            for iter in tqdm(range(self.max_iter)):
+                m = X.shape[0]
                 theta = theta - self.alpha * np.dot(
-                    X.T, (h_theta(theta, X) - y)) / X.shape[0]
+                    X.T, (h_theta(theta, X) - y)) / m
                 cost = J_theta(theta, X, y)
                 if cost <= min_cost:
                     min_cost = cost
                     self.theta = theta
                 else:
                     pass
-                if self.verbose:
-                    print("iter: ", iter, "cost: ", cost)
 
         assert X.shape[0] == y.shape[0]
         assert len(X.shape) == 2
         # todo: implement
-        # self.theta = np.random.rand(X.shape[1])
-        self.theta = np.full(X.shape[1], 0.5)
+        self.theta = np.random.rand(X.shape[1])
+        # self.theta = np.full(X.shape[1], self.intial_theta_value)
         gradient_descent(self.theta, X, y)
-        if self.verbose:
-            print("Logistic Regression fit finished")
-            print("theta: ", self.theta)
+        print("Logistic Regression fit done")
+        print("theta: ", self.theta)
 
     def predict(self, X):
         """

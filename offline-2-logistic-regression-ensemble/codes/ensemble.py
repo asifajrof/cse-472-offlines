@@ -25,10 +25,10 @@ class BaggingClassifier:
         assert len(X.shape) == 2
         # todo: implement
         for i in range(self.n_estimator):
+            print(f"fitting estimator {i+1}/{self.n_estimator}...")
             X_sample, y_sample = bagging_sampler(X, y)
             self.base_estimator.fit(X_sample, y_sample)
-            estimator = self.base_estimator
-            self.estimators.append(copy.deepcopy(estimator))
+            self.estimators.append(copy.deepcopy(self.base_estimator))
 
     def predict(self, X):
         """
@@ -46,6 +46,6 @@ class BaggingClassifier:
         predictions = np.transpose(predictions)
         y_pred = []
         for prediction in predictions:
-            prediction = prediction.astype(int)
+            # prediction = prediction.astype(int)
             y_pred.append(np.argmax(np.bincount(prediction)))
         return np.array(y_pred)

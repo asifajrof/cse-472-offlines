@@ -28,7 +28,6 @@ def split_dataset(X, y, test_size=0.2, shuffle=True):
     """
     # todo: implement.
     X_train, y_train, X_test, y_test = None, None, None, None
-    # index list
     index_list = np.arange(X.shape[0])
     # shuffle
     np.random.shuffle(index_list) if shuffle else None
@@ -51,7 +50,6 @@ def bagging_sampler(X, y):
     """
     # todo: implement
     X_sample, y_sample = None, None
-    # numpy random choice
     index_list = np.random.choice(X.shape[0], X.shape[0], replace=True)
     X_sample = X[index_list]
     y_sample = y[index_list]
