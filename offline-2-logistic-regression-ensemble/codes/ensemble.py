@@ -44,8 +44,6 @@ class BaggingClassifier:
         # majority voting
         predictions = np.array(predictions)
         predictions = np.transpose(predictions)
-        # save to csv
-        np.savetxt("predictions.csv", predictions, delimiter=",")
         y_pred = []
         for prediction in predictions:
             prediction = prediction.astype(int)

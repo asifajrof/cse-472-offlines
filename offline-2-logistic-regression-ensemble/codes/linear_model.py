@@ -62,7 +62,7 @@ class LogisticRegression:
         assert len(X.shape) == 2
         # todo: implement
         # self.theta = np.random.rand(X.shape[1])
-        self.theta = np.full(X.shape[1], 1e-10)
+        self.theta = np.full(X.shape[1], 0.5)
         gradient_descent(self.theta, X, y)
         if self.verbose:
             print("Logistic Regression fit finished")

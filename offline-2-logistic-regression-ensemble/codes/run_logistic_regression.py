@@ -7,7 +7,7 @@ from data_handler import load_dataset, split_dataset
 from metrics import accuracy, precision_score, recall_score, f1_score
 import sys
 
-alpha = 0.01
+alpha = 0.02
 max_iter = 2000
 
 if __name__ == '__main__':
