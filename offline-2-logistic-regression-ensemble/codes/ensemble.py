@@ -42,10 +42,5 @@ class BaggingClassifier:
         for estimator in self.estimators:
             predictions.append(estimator.predict(X))
         # majority voting
-        predictions = np.array(predictions)
-        predictions = np.transpose(predictions)
-        y_pred = []
-        for prediction in predictions:
-            # prediction = prediction.astype(int)
-            y_pred.append(np.argmax(np.bincount(prediction)))
-        return np.array(y_pred)
+        y_pred = np.round(np.mean(predictions, axis=0)).astype(int)
+        return y_pred

@@ -14,19 +14,11 @@ def confusion_matrix(y_true, y_pred):
     :param y_pred:
     :return:
     """
-    TN = 0
-    FP = 0
-    FN = 0
-    TP = 0
-    for i in range(len(y_true)):
-        if y_true[i] == 1 and y_pred[i] == 1:
-            TP += 1
-        elif y_true[i] == 0 and y_pred[i] == 0:
-            TN += 1
-        elif y_true[i] == 0 and y_pred[i] == 1:
-            FP += 1
-        else:
-            FN += 1
+    TP = np.sum(np.logical_and(y_true, y_pred))
+    TN = np.sum(np.logical_and(
+        np.logical_not(y_true), np.logical_not(y_pred)))
+    FP = np.sum(np.logical_and(np.logical_not(y_true), y_pred))
+    FN = np.sum(np.logical_and(y_true, np.logical_not(y_pred)))
     return np.array([[TN, FP], [FN, TP]])
 
 

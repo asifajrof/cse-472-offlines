@@ -9,7 +9,7 @@ from metrics import accuracy, precision_score, recall_score, f1_score
 import sys
 
 alpha = 0.02
-max_iter = 1000
+max_iter = 1500
 n_estimator = 9
 
 if __name__ == '__main__':

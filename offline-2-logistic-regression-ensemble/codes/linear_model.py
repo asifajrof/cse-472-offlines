@@ -21,29 +21,21 @@ class LogisticRegression:
         :param y:
         :return: self
         """
-        def sigmoid(x):
-            return 1 / (1 + np.exp(-x))
-
-        def theta_T_X(theta, X):
-            return np.dot(theta, X)
-
-        def h_theta(theta, X):
-            h = np.zeros(X.shape[0])
-            for i in range(X.shape[0]):
-                h[i] = sigmoid(theta_T_X(theta, X[i]))
-            return h
+        def sigmoid(theta, X):
+            return 1/(1 + np.exp(-X.dot(theta)))
 
         def J_theta(theta, X, y):
             m = X.shape[0]
-            return np.sum(-y * np.log(h_theta(theta, X)) - (1 - y) * np.log(1 - h_theta(theta, X)))/m
+            return np.sum(-y * np.log(sigmoid(theta, X)) - (1 - y) * np.log(1 - sigmoid(theta, X)))/m
 
         def gradient_descent(theta, X, y):
             min_cost = 1e10
 
             for iter in tqdm(range(self.max_iter)):
                 m = X.shape[0]
-                theta = theta - self.alpha * np.dot(
-                    X.T, (h_theta(theta, X) - y)) / m
+                sigmx = sigmoid(theta, X)
+                diff = sigmx - y
+                theta = theta - self.alpha * X.T.dot(diff)/m
                 cost = J_theta(theta, X, y)
                 if cost <= min_cost:
                     min_cost = cost
@@ -67,17 +59,9 @@ class LogisticRegression:
         :return:
         """
         # todo: implement
-        def sigmoid(x):
-            sigm = 1 / (1 + np.exp(-x))
-            # return 0 or 1
-            return 1 if sigm >= 0.5 else 0
+        def sigmoid(theta, X):
+            return 1/(1 + np.exp(-X.dot(theta)))
 
-        def theta_T_X(theta, X):
-            return np.dot(theta, X)
-
-        def h_theta(theta, X):
-            h = np.zeros(X.shape[0])
-            for i in range(X.shape[0]):
-                h[i] = sigmoid(theta_T_X(theta, X[i]))
-            return h.astype(int)
-        return h_theta(self.theta, X)
+        sigmx = sigmoid(self.theta, X)
+        y_pred = np.round(sigmx).astype(int)
+        return y_pred

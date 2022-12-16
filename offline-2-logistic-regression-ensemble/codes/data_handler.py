@@ -12,8 +12,9 @@ def load_dataset(csv_path):
     # todo: implement
     X, y = None, None
     data_frame = pd.read_csv(csv_path)
-    X = np.array(data_frame[data_frame.columns[:-1]])
-    y = np.array(data_frame[data_frame.columns[-1]])
+    X = np.array(data_frame.iloc[:, :-1])
+    X = np.insert(X, 0, 1, axis=1)
+    y = np.array(data_frame.iloc[:, -1])
     return X, y
 
 
