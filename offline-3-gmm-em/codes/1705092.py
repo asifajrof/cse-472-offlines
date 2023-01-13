@@ -1,13 +1,12 @@
 # gmm with em algorithm using numpy
 
 import sys
-import numpy as np
-from scipy.stats import multivariate_normal
-import matplotlib.pyplot as plt
 from tqdm import tqdm
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import multivariate_normal
 from sklearn.decomposition import PCA
 
-logging = False
 k_init = 1
 k_final = 10
 n_max_iter = 100
@@ -33,25 +32,12 @@ class GMM_EM:
     def model_initialize(self, dataset):
         self.N, self.D = dataset.shape
         self.mu = dataset[np.random.randint(0, self.N, size=self.k)]
-        # # dataset's sigma as all cluster's sigma
-        # self.sigma = np.full(shape=(self.k, self.D, self.D), fill_value=np.cov(dataset.T))
-        # k identity matrix of shape DxD
+        # dataset's sigma as all cluster's sigma + identity matrix
+        cov = np.cov(dataset.T) + np.eye(self.D)
         self.sigma = np.full(shape=(self.k, self.D, self.D),
-                             fill_value=np.eye(self.D))
+                             fill_value=cov)
         self.phi = np.full(shape=self.k, fill_value=1 / self.k)
         self.w = np.full(shape=(self.N, self.k), fill_value=1 / self.k)
-
-        if logging:
-            print('model_initialize:')
-            print(f'N: {self.N}; D: {self.D}')
-            print(f'mu: {self.mu}')
-            print(f'mu shape: {self.mu.shape}')
-            print(f'sigma: {self.sigma}')
-            print(f'sigma shape: {self.sigma.shape}')
-            print(f'phi: {self.phi}')
-            print(f'phi shape: {self.phi.shape}')
-            print(f'w: {self.w}')
-            print(f'w shape: {self.w.shape}')
 
     def E_step(self, dataset):
         N_pdf = np.zeros(shape=(self.N, self.k))
@@ -63,17 +49,6 @@ class GMM_EM:
         denominator = np.sum(numerator, axis=1)
         self.w = numerator / denominator.reshape(-1, 1)
 
-        if logging:
-            print('E_step:')
-            print(f'N_pdf: {N_pdf}')
-            print(f'N_pdf shape: {N_pdf.shape}')
-            print(f'numerator: {numerator}')
-            print(f'numerator shape: {numerator.shape}')
-            print(f'denominator: {denominator}')
-            print(f'denominator shape: {denominator.shape}')
-            print(f'w: {self.w}')
-            print(f'w shape: {self.w.shape}')
-
     def M_step(self, dataset):
         w_sum = np.sum(self.w, axis=0)
         self.phi = w_sum / self.N
@@ -82,15 +57,6 @@ class GMM_EM:
             diff = dataset - self.mu[j]
             self.sigma[j] = np.matmul(
                 self.w[:, j] * diff.T, diff) / np.sum(self.w[:, j])
-
-        if logging:
-            print('M_step:')
-            print(f'phi: {self.phi}')
-            print(f'phi shape: {self.phi.shape}')
-            print(f'mu: {self.mu}')
-            print(f'mu shape: {self.mu.shape}')
-            print(f'sigma: {self.sigma}')
-            print(f'sigma shape: {self.sigma.shape}')
 
     def log_likelihood(self, dataset):
         N_pdf = np.zeros(shape=(self.N, self.k))
@@ -107,7 +73,6 @@ class GMM_EM:
         self.model_initialize(dataset=dataset)
         log_likelihood_list = []
         if visualize:
-            print(cmap_list)
             plt.ion()
         print(f'running EM for max {self.max_iter} iterations...')
         for i in tqdm(range(self.max_iter)):
@@ -127,16 +92,12 @@ class GMM_EM:
                 plt.pause(0.01)
 
             log_likelihood = self.log_likelihood(dataset=dataset)
-            # print(f'iter {i}: log_likelihood: {log_likelihood}')
             log_likelihood_list.append(log_likelihood)
             if i > 0 and np.abs(log_likelihood - log_likelihood_list[i-1]) < self.eps:
-                # print(f'iter {i}: log_likelihood: {log_likelihood}')
-                print(f'leaving')
+                print(f'leaving EM at iteration {i}...')
                 break
         plt.ioff()
         plt.show()
-
-        # return self.mu, self.sigma, self.phi, log_likelihood_list
 
     # def AIC(self, log_likelihood):
     #     # AIC = -2 * log_likelihood + 2*k
@@ -166,9 +127,8 @@ class GMM_EM:
         # interactive visualize for every iteration
         self.model_initialize(dataset=dataset)
         log_likelihood_list = []
-        print(f'running EM for max {self.max_iter} iterations...')
-        x, y = np.mgrid[dataset[:, 0].min():dataset[:, 0].max():complex(
-            0, dataset.shape[0]), dataset[:, 1].min():dataset[:, 1].max():complex(0, dataset.shape[0])]
+        x, y = np.mgrid[dataset[:, 0].min():dataset[:, 0].max(
+        ):0.05, dataset[:, 1].min():dataset[:, 1].max():0.05]
         pos = np.empty(x.shape + (2,))
         pos[:, :, 0] = x
         pos[:, :, 1] = y
@@ -185,26 +145,11 @@ class GMM_EM:
 
 if __name__ == '__main__':
     dataset = load_dataset(sys.argv[1])
-    if logging:
-        print(dataset)
     gmm = GMM_EM(k=k_init, max_iter=n_max_iter)
     mu, sigma, phi, k_star, log_likelihood_list = gmm.find_k_star(
         dataset=dataset, k_init=k_init, k_final=k_final+1)
-    # print(f'k*: {k_star}')
-    # print(f'mu: {mu}')
-    # print(f'sigma: {sigma}')
-    # print(f'phi: {phi}')
-    # plot likelihoods
-    # from sklearn.mixture import GaussianMixture
-    # gmm_skl = GaussianMixture(n_components=k_final,
-    #                           max_iter=n_max_iter).fit(dataset)
-    # gmm_scores = gmm_skl.score_samples(dataset)
 
-    # print('Means by sklearn:\n', gmm_skl.means_)
-    # print('Means by our implementation:\n', mu)
-    # print('Scores by sklearn:\n', gmm_scores[0:20])
-    # print('Scores by our implementation:\n', sample_likelihoods.reshape(-1)[0:20])
-
+    # plot log likelihood against k
     plt.plot(range(k_init, k_final+1), log_likelihood_list)
     plt.show()
 
@@ -212,11 +157,10 @@ if __name__ == '__main__':
     k_star = int(input('Enter k*: '))
     print(dataset.shape[1])
 
+    # visualize
     if dataset.shape[1] <= 2:
-        # visualize
         gmm = GMM_EM(k=k_star, max_iter=n_max_iter)
         gmm.visualize(dataset)
-        print(f'done')
     elif dataset.shape[1] > 2:
         # pca
         pca = PCA(2)
@@ -224,4 +168,5 @@ if __name__ == '__main__':
         dataset_2d = pca.transform(dataset)
         gmm = GMM_EM(k=k_star, max_iter=n_max_iter)
         gmm.visualize(dataset=dataset_2d)
-        print(f'done')
+
+    print('done')
