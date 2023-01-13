@@ -5,6 +5,7 @@ import numpy as np
 from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from sklearn.decomposition import PCA
 
 logging = False
 k_init = 1
@@ -121,7 +122,7 @@ class GMM_EM:
                     N_distr = multivariate_normal(
                         mean=self.mu[j], cov=self.sigma[j], allow_singular=True)
                     z = N_distr.pdf(pos)
-                    plt.scatter(mu[j, 0], mu[j, 1], s=5, c='r')
+                    # plt.scatter(mu[j, 0], mu[j, 1], s=5, c='r')
                     plt.contour(x, y, z, cmap=cmap_list[j])
                 plt.pause(0.01)
 
@@ -176,7 +177,7 @@ class GMM_EM:
                               'inferno', 'magma', 'cividis']
         # take k from cmap_list_original
         cmap_list = [cmap_list_original[i]
-                     for i in np.random.randint(0, self.k, self.k)]
+                     for i in np.random.randint(0, len(cmap_list_original), self.k)]
 
         self.run_EM(dataset=dataset, visualize=True, x=x,
                     y=y, pos=pos, cmap_list=cmap_list)
@@ -215,4 +216,12 @@ if __name__ == '__main__':
         # visualize
         gmm = GMM_EM(k=k_star, max_iter=n_max_iter)
         gmm.visualize(dataset)
+        print(f'done')
+    elif dataset.shape[1] > 2:
+        # pca
+        pca = PCA(2)
+        pca.fit(dataset)
+        dataset_2d = pca.transform(dataset)
+        gmm = GMM_EM(k=k_star, max_iter=n_max_iter)
+        gmm.visualize(dataset=dataset_2d)
         print(f'done')
