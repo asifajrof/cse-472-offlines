@@ -69,7 +69,19 @@ class GMM_EM:
         log_likelihood = np.sum(np.log(sum_weighted_pdf))
         return log_likelihood
 
-    def run_EM(self, dataset, visualize=False, x=None, y=None, pos=None, cmap_list=None):
+    def predict(self, dataset):
+        N_pdf = np.zeros(shape=(self.N, self.k))
+        for j in range(self.k):
+            N_distr = multivariate_normal(
+                mean=self.mu[j], cov=self.sigma[j], allow_singular=True)
+            N_pdf[:, j] = N_distr.pdf(dataset)
+        numerator = N_pdf * self.phi
+        denominator = np.sum(numerator, axis=1)
+        weight = numerator / denominator.reshape(-1, 1)
+        prediction = np.argmax(weight, axis=1)
+        return prediction
+
+    def run_EM(self, dataset, visualize=False, dataset_2d=None, x=None, y=None, pos=None, cmap_list=None):
         self.model_initialize(dataset=dataset)
         log_likelihood_list = []
         if visualize:
@@ -82,10 +94,25 @@ class GMM_EM:
             if visualize:
                 plt.clf()
                 plt.title(f'Iter: {i}')
-                plt.scatter(dataset[:, 0], dataset[:, 1], s=0.5)
+                plt.scatter(dataset_2d[:, 0], dataset_2d[:, 1], s=0.5)
+                # finding mu and sigma for each cluster
+                prediction = self.predict(dataset=dataset)
+
                 for j in range(self.k):
+                    points_idx = np.where(prediction == j)[0]
+                    # print(points_idx)
+                    if len(points_idx) == 0:
+                        mu = [0, 0]
+                        sigma = np.eye(2)
+                    elif len(points_idx) == 1:
+                        mu = np.mean(dataset_2d[points_idx], axis=0)
+                        sigma = np.eye(2)
+                    else:
+                        points = dataset_2d[points_idx]
+                        mu = np.mean(points, axis=0)
+                        sigma = np.cov(points.T)
                     N_distr = multivariate_normal(
-                        mean=self.mu[j], cov=self.sigma[j], allow_singular=True)
+                        mean=mu, cov=sigma, allow_singular=True)
                     z = N_distr.pdf(pos)
                     # plt.scatter(mu[j, 0], mu[j, 1], s=5, c='r')
                     plt.contour(x, y, z, cmap=cmap_list[j])
@@ -123,12 +150,10 @@ class GMM_EM:
         # k_star = best_aic + k_init
         return self.mu, self.sigma, self.phi, k_star, log_likelihood_list
 
-    def visualize(self, dataset):
+    def visualize(self, dataset, dataset_2d):
         # interactive visualize for every iteration
-        self.model_initialize(dataset=dataset)
-        log_likelihood_list = []
-        x, y = np.mgrid[dataset[:, 0].min():dataset[:, 0].max(
-        ):0.05, dataset[:, 1].min():dataset[:, 1].max():0.05]
+        x, y = np.mgrid[dataset_2d[:, 0].min():dataset_2d[:, 0].max(
+        ):0.05, dataset_2d[:, 1].min():dataset_2d[:, 1].max():0.05]
         pos = np.empty(x.shape + (2,))
         pos[:, :, 0] = x
         pos[:, :, 1] = y
@@ -139,7 +164,7 @@ class GMM_EM:
         cmap_list = [cmap_list_original[i]
                      for i in np.random.randint(0, len(cmap_list_original), self.k)]
 
-        self.run_EM(dataset=dataset, visualize=True, x=x,
+        self.run_EM(dataset=dataset, visualize=True, dataset_2d=dataset_2d, x=x,
                     y=y, pos=pos, cmap_list=cmap_list)
 
 
@@ -155,18 +180,17 @@ if __name__ == '__main__':
 
     # manual k*
     k_star = int(input('Enter k*: '))
-    print(dataset.shape[1])
 
     # visualize
     if dataset.shape[1] <= 2:
         gmm = GMM_EM(k=k_star, max_iter=n_max_iter)
-        gmm.visualize(dataset)
+        gmm.visualize(dataset=dataset, dataset_2d=dataset)
     elif dataset.shape[1] > 2:
         # pca
         pca = PCA(2)
         pca.fit(dataset)
         dataset_2d = pca.transform(dataset)
         gmm = GMM_EM(k=k_star, max_iter=n_max_iter)
-        gmm.visualize(dataset=dataset_2d)
+        gmm.visualize(dataset=dataset, dataset_2d=dataset_2d)
 
     print('done')
