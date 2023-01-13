@@ -13,12 +13,6 @@ n_max_iter = 100
 
 
 def load_dataset(file_path):
-    """
-    function for reading data from csv
-    and processing to return a 2D feature matrix and a vector of class
-    :param csv_path: path to csv file
-    :return:
-    """
     dataset = np.loadtxt(file_path, delimiter=' ')
     return dataset
 
@@ -108,21 +102,40 @@ class GMM_EM:
         log_likelihood = np.sum(np.log(sum_weighted_pdf))
         return log_likelihood
 
-    def run_EM(self, dataset):
+    def run_EM(self, dataset, visualize=False, x=None, y=None, pos=None, cmap_list=None):
         self.model_initialize(dataset=dataset)
         log_likelihood_list = []
+        if visualize:
+            print(cmap_list)
+            plt.ion()
         print(f'running EM for max {self.max_iter} iterations...')
         for i in tqdm(range(self.max_iter)):
             self.E_step(dataset=dataset)
             self.M_step(dataset=dataset)
+
+            if visualize:
+                plt.clf()
+                plt.title(f'Iter: {i}')
+                plt.scatter(dataset[:, 0], dataset[:, 1], s=0.5)
+                for j in range(self.k):
+                    N_distr = multivariate_normal(
+                        mean=self.mu[j], cov=self.sigma[j], allow_singular=True)
+                    z = N_distr.pdf(pos)
+                    plt.scatter(mu[j, 0], mu[j, 1], s=5, c='r')
+                    plt.contour(x, y, z, cmap=cmap_list[j])
+                plt.pause(0.01)
+
             log_likelihood = self.log_likelihood(dataset=dataset)
             # print(f'iter {i}: log_likelihood: {log_likelihood}')
             log_likelihood_list.append(log_likelihood)
             if i > 0 and np.abs(log_likelihood - log_likelihood_list[i-1]) < self.eps:
                 # print(f'iter {i}: log_likelihood: {log_likelihood}')
+                print(f'leaving')
                 break
+        plt.ioff()
+        plt.show()
 
-        return self.mu, self.sigma, self.phi, log_likelihood_list
+        # return self.mu, self.sigma, self.phi, log_likelihood_list
 
     # def AIC(self, log_likelihood):
     #     # AIC = -2 * log_likelihood + 2*k
@@ -148,6 +161,26 @@ class GMM_EM:
         # k_star = best_aic + k_init
         return self.mu, self.sigma, self.phi, k_star, log_likelihood_list
 
+    def visualize(self, dataset):
+        # interactive visualize for every iteration
+        self.model_initialize(dataset=dataset)
+        log_likelihood_list = []
+        print(f'running EM for max {self.max_iter} iterations...')
+        x, y = np.mgrid[dataset[:, 0].min():dataset[:, 0].max():complex(
+            0, dataset.shape[0]), dataset[:, 1].min():dataset[:, 1].max():complex(0, dataset.shape[0])]
+        pos = np.empty(x.shape + (2,))
+        pos[:, :, 0] = x
+        pos[:, :, 1] = y
+
+        cmap_list_original = ['viridis', 'plasma',
+                              'inferno', 'magma', 'cividis']
+        # take k from cmap_list_original
+        cmap_list = [cmap_list_original[i]
+                     for i in np.random.randint(0, self.k, self.k)]
+
+        self.run_EM(dataset=dataset, visualize=True, x=x,
+                    y=y, pos=pos, cmap_list=cmap_list)
+
 
 if __name__ == '__main__':
     dataset = load_dataset(sys.argv[1])
@@ -161,12 +194,6 @@ if __name__ == '__main__':
     # print(f'sigma: {sigma}')
     # print(f'phi: {phi}')
     # plot likelihoods
-    plt.plot(range(k_init, k_final+1), log_likelihood_list)
-    plt.show()
-
-    # manual k*
-    k_star = int(input('Enter k*: '))
-
     # from sklearn.mixture import GaussianMixture
     # gmm_skl = GaussianMixture(n_components=k_final,
     #                           max_iter=n_max_iter).fit(dataset)
@@ -176,3 +203,16 @@ if __name__ == '__main__':
     # print('Means by our implementation:\n', mu)
     # print('Scores by sklearn:\n', gmm_scores[0:20])
     # print('Scores by our implementation:\n', sample_likelihoods.reshape(-1)[0:20])
+
+    plt.plot(range(k_init, k_final+1), log_likelihood_list)
+    plt.show()
+
+    # manual k*
+    k_star = int(input('Enter k*: '))
+    print(dataset.shape[1])
+
+    if dataset.shape[1] <= 2:
+        # visualize
+        gmm = GMM_EM(k=k_star, max_iter=n_max_iter)
+        gmm.visualize(dataset)
+        print(f'done')
