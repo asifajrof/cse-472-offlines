@@ -61,7 +61,8 @@ def im2col(X, filter_h, filter_w, stride=1, padding=0):
     h, w, d = get_indices(X.shape, filter_h, filter_w, stride, padding)
 
     X_cols = X_padded[:, d, h, w]
-    X_cols = np.concatenate(X_cols, axis=-1)
+    X_cols = X_cols.transpose(1, 2, 0).reshape(
+        filter_h * filter_w * X.shape[1], -1)
     return X_cols
 
 

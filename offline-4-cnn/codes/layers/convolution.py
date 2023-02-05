@@ -72,7 +72,7 @@ class Convolution(Layer):
         # vectorized implementation
         input_col = im2col(input, self.filter_height,
                            self.filter_width, self.stride, self.padding)
-        weights_col = self.weights.reshape((self.num_filters, -1))
+        weights_col = self.weights.reshape(self.num_filters, -1)
         bias_col = self.biases.reshape(-1, 1)
 
         output_col = np.matmul(weights_col, input_col) + bias_col
