@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# oversized file
+offline-4-cnn/Assignment4-Materials/NumtaDB_with_aug.zip
+offline-4-cnn/Assignment4-Materials/NumtaDB_with_aug
