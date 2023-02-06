@@ -1,6 +1,6 @@
 # convolution layer, inherits from layer class
 from layer import Layer
-from ..utils import *
+from utils import *
 import numpy as np
 
 
@@ -27,7 +27,7 @@ class Convolution(Layer):
 
         # weights: (num_filters, num_channels, filter_height, filter_width)
         # initialize weights xaiver initialization
-        if self.weights == None:
+        if self.weights is None:
             self.weights = np.random.randn(self.num_filters, num_channels, self.filter_height, self.filter_width) * (
                 np.sqrt(2 / (
                     self.filter_height * self.filter_width
@@ -36,7 +36,7 @@ class Convolution(Layer):
 
         # biases: (num_filters, 1)
         # initialize biases to 0
-        if self.biases == None:
+        if self.biases is None:
             self.biases = np.zeros(self.num_filters)
 
         # output: (batch_size, num_filters, output_height, output_width)
@@ -48,14 +48,14 @@ class Convolution(Layer):
         # output = np.zeros((batch_size, self.num_filters,
         #                   output_height, output_width))
 
-        # # np.pad: Number of values padded to the edges of each axis.
-        # # ((before_1, after_1), ... (before_N, after_N)) unique pad widths for each axis.
-        # # pad with 'constant' values. default: 0
-        # input_padded = np.pad(input, ((0, 0),
-        #                               (0, 0),
-        #                               (self.padding, self.padding),
-        #                               (self.padding, self.padding)
-        #                               ), 'constant')
+        # np.pad: Number of values padded to the edges of each axis.
+        # ((before_1, after_1), ... (before_N, after_N)) unique pad widths for each axis.
+        # pad with 'constant' values. default: 0
+        input_padded = np.pad(input, ((0, 0),
+                                      (0, 0),
+                                      (self.padding, self.padding),
+                                      (self.padding, self.padding)
+                                      ), 'constant')
 
         # for sample_index in range(batch_size):
         #     for filter_index in range(self.num_filters):
@@ -70,15 +70,41 @@ class Convolution(Layer):
         #                 ) + self.biases[filter_index]
 
         # vectorized implementation
-        input_col = im2col(input, self.filter_height,
-                           self.filter_width, self.stride, self.padding)
-        weights_col = self.weights.reshape(self.num_filters, -1)
-        bias_col = self.biases.reshape(-1, 1)
+        # input_col = im2col(input, self.filter_height,
+        #                    self.filter_width, self.stride, self.padding)
+        # weights_col = self.weights.reshape(self.num_filters, -1)
+        # bias_col = self.biases.reshape(-1, 1)
 
-        output_col = np.matmul(weights_col, input_col) + bias_col
+        # output_col = np.matmul(weights_col, input_col) + bias_col
 
-        output = np.array(np.hsplit(output_col, batch_size)).reshape(
-            (batch_size, self.num_filters, output_height, output_width))
+        # output = np.array(np.hsplit(output_col, batch_size)).reshape(
+        #     (batch_size, self.num_filters, output_height, output_width))
+
+        # as strided
+        input_strided = np.lib.stride_tricks.as_strided(
+            input_padded,
+            shape=(
+                batch_size,
+                num_channels,
+                output_height,
+                output_width,
+                self.filter_height,
+                self.filter_width
+            ),
+            strides=(
+                input_padded.strides[0],
+                input_padded.strides[1],
+                input_padded.strides[2] * self.stride,
+                input_padded.strides[3] * self.stride,
+                input_padded.strides[2],
+                input_padded.strides[3]
+            )
+        )
+        # einsum
+        output = np.einsum(
+            'bcijkl,fckl->bfij',
+            input_strided, self.weights
+        )
         return output
 
     def backward(self, output_error, learning_rate):

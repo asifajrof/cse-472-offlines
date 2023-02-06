@@ -23,9 +23,9 @@ def get_indices(X_shape, filter_h, filter_w, stride=1, padding=0):
     # duplicate for input channels
     h_indices = np.tile(h_indices, num_channels)
     # stride
-    init_points = stride * np.repeat(np.arange(out_h), out_w)
+    h_init_points = stride * np.repeat(np.arange(out_h), out_w)
 
-    h_indices = h_indices.reshape(-1, 1) + init_points.reshape(1, -1)
+    h = h_indices.reshape(-1, 1) + h_init_points.reshape(1, -1)
 
     # w
     # first level
@@ -33,15 +33,15 @@ def get_indices(X_shape, filter_h, filter_w, stride=1, padding=0):
     # duplicate for input channels
     w_indices = np.tile(w_indices, num_channels)
     # stride
-    init_points = stride * np.tile(np.arange(out_w), out_h)
+    w_init_points = stride * np.tile(np.arange(out_w), out_h)
 
-    w_indices = w_indices.reshape(-1, 1) + init_points.reshape(1, -1)
+    w = w_indices.reshape(-1, 1) + w_init_points.reshape(1, -1)
 
     # d
-    d_indices = np.repeat(np.arange(num_channels),
-                          filter_h * filter_w).reshape(-1, 1)
+    d = np.repeat(np.arange(num_channels),
+                  filter_h * filter_w).reshape(-1, 1)
 
-    return h_indices, w_indices, d_indices
+    return h, w, d
 
 
 def im2col(X, filter_h, filter_w, stride=1, padding=0):
@@ -61,8 +61,7 @@ def im2col(X, filter_h, filter_w, stride=1, padding=0):
     h, w, d = get_indices(X.shape, filter_h, filter_w, stride, padding)
 
     X_cols = X_padded[:, d, h, w]
-    X_cols = X_cols.transpose(1, 2, 0).reshape(
-        filter_h * filter_w * X.shape[1], -1)
+    X_cols = np.concatenate(X_cols, axis=-1)
     return X_cols
 
 
