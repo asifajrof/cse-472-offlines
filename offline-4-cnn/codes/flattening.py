@@ -1,6 +1,5 @@
-# flattening layer, inherits from layer class
 from layer import Layer
-import numpy as np
+# import numpy as np
 
 
 class Flattening(Layer):

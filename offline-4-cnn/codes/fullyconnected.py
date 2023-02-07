@@ -1,4 +1,3 @@
-# fully connected layer, inherits from layer class
 from layer import Layer
 import numpy as np
 

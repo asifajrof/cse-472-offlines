@@ -1,4 +1,3 @@
-# class for cnn layers. base class that every layer inherits from
 class Layer:
     def forward(self, input):
         # input.

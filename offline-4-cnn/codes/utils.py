@@ -63,11 +63,3 @@ def im2col(X, filter_h, filter_w, stride=1, padding=0):
     X_cols = X_padded[:, d, h, w]
     X_cols = np.concatenate(X_cols, axis=-1)
     return X_cols
-
-
-# def convolve(X, Y, stride=1, padding=0):
-#     # X: (batch_size, num_channels, height, width)
-#     # Y: (num_filters, num_channels, filter_height, filter_width)
-#     # stride: int
-#     # padding: int
-#     # return: (batch_size, num_filters, height, width)

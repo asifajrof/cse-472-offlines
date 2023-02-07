@@ -1,6 +1,5 @@
-# convolution layer, inherits from layer class
 from layer import Layer
-from utils import *
+# from utils import *
 import numpy as np
 
 
@@ -45,9 +44,6 @@ class Convolution(Layer):
         output_width = int((input_width - self.filter_width + 2 *
                            self.padding) / self.stride + 1)
 
-        # output = np.zeros((batch_size, self.num_filters,
-        #                   output_height, output_width))
-
         # np.pad: Number of values padded to the edges of each axis.
         # ((before_1, after_1), ... (before_N, after_N)) unique pad widths for each axis.
         # pad with 'constant' values. default: 0
@@ -57,6 +53,11 @@ class Convolution(Layer):
                                       (self.padding, self.padding)
                                       ), 'constant')
 
+        # # for loop
+        #
+        # output = np.zeros((batch_size, self.num_filters,
+        #                   output_height, output_width))
+        #
         # for sample_index in range(batch_size):
         #     for filter_index in range(self.num_filters):
         #         for h in range(output_height):
@@ -69,18 +70,8 @@ class Convolution(Layer):
         #                                  ] * self.weights[filter_index]
         #                 ) + self.biases[filter_index]
 
-        # vectorized implementation
-        # input_col = im2col(input, self.filter_height,
-        #                    self.filter_width, self.stride, self.padding)
-        # weights_col = self.weights.reshape(self.num_filters, -1)
-        # bias_col = self.biases.reshape(-1, 1)
-
-        # output_col = np.matmul(weights_col, input_col) + bias_col
-
-        # output = np.array(np.hsplit(output_col, batch_size)).reshape(
-        #     (batch_size, self.num_filters, output_height, output_width))
-
         # as strided
+        # https://stackoverflow.com/a/53099870
         input_strided = np.lib.stride_tricks.as_strided(
             input_padded,
             shape=(
@@ -101,6 +92,7 @@ class Convolution(Layer):
             )
         )
         # einsum
+        # https://ajcr.net/Basic-guide-to-einsum/
         output = np.einsum(
             'bcijkl,fckl->bfij',
             input_strided, self.weights
