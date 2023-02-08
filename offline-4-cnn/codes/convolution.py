@@ -29,7 +29,7 @@ class Convolution(Layer):
         if self.weights is None:
             self.weights = np.random.randn(self.num_filters, num_channels, self.filter_height, self.filter_width) * (
                 np.sqrt(2 / (
-                    self.filter_height * self.filter_width
+                    self.filter_height
                 ))
             )
 
