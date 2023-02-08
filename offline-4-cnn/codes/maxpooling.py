@@ -152,8 +152,8 @@ class MaxPooling(Layer):
                             # https://ai.stackexchange.com/a/17109
                             input_error[max_index] += output_error[i, j, h, w]
 
-        # # clear cache
-        # input = None
-        # max_value_mask = None
-        # self.cache = None
+        # clear cache
+        input = None
+        max_value_mask = None
+        self.cache = None
         return input_error

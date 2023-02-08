@@ -3,16 +3,8 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 import numpy as np
 import cv2
+from tqdm import tqdm
 import matplotlib.pyplot as plt
-
-csv_root = "../Assignment4-Materials/NumtaDB_with_aug/"
-csv_filenames = [
-    "training-a.csv",
-    "training-b.csv",
-    "training-c.csv",
-    # "training-d.csv",
-    # "training-e.csv"
-]
 
 
 def read_all_csv(csv_root, csv_filenames):
@@ -39,7 +31,7 @@ def get_dataset(df, n_samples=5000, random_state=42):
     return dataset_df
 
 
-def get_test_train_split(n_samples=5000, test_size=0.2, random_state=42):
+def get_test_train_split(csv_root, csv_filenames, n_samples=5000, test_size=0.2, random_state=42):
     merged_df = read_all_csv(csv_root, csv_filenames)
     dataset_df = get_dataset(
         merged_df, n_samples=n_samples, random_state=random_state)
@@ -56,7 +48,7 @@ def get_test_train_split(n_samples=5000, test_size=0.2, random_state=42):
 
 def load_image(image_path_root, image_paths, output_dim=(28, 28)):
     images = []
-    for image_path in image_paths:
+    for image_path in tqdm(image_paths):
         try:
             # read image
             str_image_path = str(Path(image_path_root)/Path(image_path))

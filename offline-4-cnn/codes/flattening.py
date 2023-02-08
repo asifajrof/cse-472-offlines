@@ -20,7 +20,7 @@ class Flattening(Layer):
         input_shape = self.cache
         input_error = output_error.reshape(input_shape)
 
-        # # clear cache
-        # input_shape = None
-        # self.cache = None
+        # clear cache
+        input_shape = None
+        self.cache = None
         return input_error

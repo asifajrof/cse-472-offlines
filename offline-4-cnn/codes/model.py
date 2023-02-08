@@ -1,36 +1,107 @@
 from basic_components import *
 from utils import *
 from tqdm import tqdm
+import numpy as np
+import pickle
+
+random_seed = 42
+np.random.seed(random_seed)
+test_ratio = 0.2
+n_samples = 1000
+n_epochs = 10
+batch_size = 16
+learning_rate = 0.001
+
+NEW_RUN = False
+
+data_root = "../Assignment4-Materials/NumtaDB_with_aug/"
+csv_filenames = [
+    "training-a.csv",
+    "training-b.csv",
+    "training-c.csv",
+    # "training-d.csv",
+    # "training-e.csv"
+]
+
+save_root = "../saved/"
+
+image_output_dim = (28, 28)
+lenet_model_params = [
+    {
+        "type": "convolution",
+        "num_filters": 6,
+        "filter_dim": (5, 5),
+        "stride": 1,
+        "padding": 0
+    }, {
+        "type": "relu"
+    }, {
+        "type": "maxpooling",
+        "filter_dim": (2, 2),
+        "stride": 2
+    }, {
+        "type": "convolution",
+        "num_filters": 16,
+        "filter_dim": (5, 5),
+        "stride": 1,
+        "padding": 0
+    }, {
+        "type": "relu"
+    }, {
+        "type": "maxpooling",
+        "filter_dim": (2, 2),
+        "stride": 2
+    }, {
+        "type": "flattening"
+    }, {
+        "type": "fullyconnected",
+        "output_dim": 120
+    }, {
+        "type": "relu"
+    }, {
+        "type": "fullyconnected",
+        "output_dim": 84
+    }, {
+        "type": "relu"
+    }, {
+        "type": "fullyconnected",
+        "output_dim": 10
+    }, {
+        "type": "softmax"
+    }
+]
 
 
-def get_model():
-    # Define the model
-    # lenet
-    # conv1: 6@28x28
-    # pool1: 6@14x14
-    # conv2: 16@10x10
-    # pool2: 16@5x5
-    # fc1: 120
-    # fc2: 84
-    # fc3: 10
-
+def get_model(model_params):
     model = []
-
-    model.append(Convolution(
-        num_filters=6, filter_dim=(5, 5), stride=1, padding=0))
-    model.append(ReLU())
-    model.append(MaxPooling(filter_dim=(2, 2), stride=2))
-    model.append(Convolution(num_filters=16,
-                 filter_dim=(5, 5), stride=1, padding=0))
-    model.append(ReLU())
-    model.append(MaxPooling(filter_dim=(2, 2), stride=2))
-    model.append(Flattening())
-    model.append(FullyConnected(output_dim=120))
-    model.append(ReLU())
-    model.append(FullyConnected(output_dim=84))
-    model.append(ReLU())
-    model.append(FullyConnected(output_dim=10))
-    model.append(Softmax())
+    for layer in model_params:
+        if layer["type"] == "convolution":
+            model.append(Convolution(
+                num_filters=layer["num_filters"],
+                filter_dim=layer["filter_dim"],
+                stride=layer["stride"],
+                padding=layer["padding"]
+            )
+            )
+        elif layer["type"] == "relu":
+            model.append(ReLU())
+        elif layer["type"] == "maxpooling":
+            model.append(MaxPooling(
+                filter_dim=layer["filter_dim"],
+                stride=layer["stride"]
+            )
+            )
+        elif layer["type"] == "flattening":
+            model.append(Flattening())
+        elif layer["type"] == "fullyconnected":
+            model.append(FullyConnected(
+                output_dim=layer["output_dim"]
+            )
+            )
+        elif layer["type"] == "softmax":
+            model.append(Softmax())
+        else:
+            raise Exception("Unknown layer type")
 
     return model
 
@@ -54,14 +125,22 @@ def cross_entropy_loss(y_pred, y_true):
     return loss
 
 
-def train_model(model, X, y):
-    image_path_root = "../Assignment4-Materials/NumtaDB_with_aug"
+def accuracy(y_pred, y_true):
+    # y_pred: (n_samples,n_classes)
+    # y_true: (n_samples,n_classes)
+    # acc: scalar
+    y_pred = np.argmax(y_pred, axis=1)
+    y_true = np.argmax(y_true, axis=1)
+    acc = np.sum(y_pred == y_true) / y_pred.shape[0]
+    return acc
+
+
+def train_model(model, X, y, batch_size=32, learning_rate=0.001):
     # X: (n_samples, n_channels, height, width)
     # y: (n_samples, n_classes)
+
     # batching and training
-    batch_size = 32
     num_batches = X.shape[0] // batch_size
-    # loss
     batch_loss = []
     batch_acc = []
     for batch in tqdm(range(num_batches)):
@@ -70,112 +149,146 @@ def train_model(model, X, y):
         batch_end = (batch + 1) * batch_size
         if batch_end > X.shape[0]:
             batch_end = X.shape[0]
-        # X_batch = X[batch_start:batch_end]
-        # load image
-        X_batch = load_image(image_path_root=image_path_root,
-                             image_paths=X[batch_start:batch_end])
+        X_batch = X[batch_start:batch_end]
+        y_batch = y[batch_start:batch_end]
 
         # forward
-        # print(f'forward\r')
         forward_output = X_batch
         for layer in model:
-            # print(f'layer: {layer.__class__.__name__}')
             forward_output = layer.forward(input=forward_output)
 
-        # calculate loss and accuracy
+        # calculate loss
         loss = cross_entropy_loss(
             y_pred=forward_output, y_true=y[batch_start:batch_end])
         batch_loss.append(loss)
-        # print(f'loss: {loss}\r')
-        # calc accuracy
-        y_pred_num = np.argmax(forward_output, axis=1)
-        y_true_num = np.argmax(y[batch_start:batch_end], axis=1)
-        accuracy = np.sum(y_pred_num == y_true_num) / y_pred_num.shape[0]
-        batch_acc.append(accuracy)
-        # print(f'accuracy: {accuracy}\r')
+        # calculate accuracy
+        acc = accuracy(y_pred=forward_output, y_true=y_batch)
+        batch_acc.append(acc)
+
         # backward
-        # print(f'backward\r')
-        grad = forward_output - y[batch_start:batch_end]
-        learning_rate = 0.001
+        grad = forward_output - y_batch
         # reverse the model
         model.reverse()
         for layer in model:
-            # print(f'layer: {layer.__class__.__name__}')
             grad = layer.backward(
                 output_error=grad, learning_rate=learning_rate)
         # reverse the model back
         model.reverse()
-    # loss
-    # avg
+
     avg_loss = np.mean(batch_loss)
     avg_acc = np.mean(batch_acc)
     return avg_loss, avg_acc
 
 
-# main
-the_cnn = get_model()
+def save_model(model, save_root, save_filename):
+    # pathlib Path make dir if not exist
+    Path(save_root).mkdir(parents=True, exist_ok=True)
+    if save_filename is None:
+        save_filename = f"model_{n_samples}-samples_{test_ratio}-test_ratio_{random_seed}-random_seed_{n_epochs}-epochs_{batch_size}-batch_size.pkl"
+    save_path = Path(save_root) / Path(save_filename)
+    with open(save_path, "wb") as f:
+        pickle.dump(model, f)
+
+    print(f"Model saved to {save_path}")
 
 
-# dataset read
-X_train, X_test, y_train, y_test = get_test_train_split(
-    n_samples=10000, test_size=0.2, random_state=42
-)
+def load_model(load_root, load_filename):
+    load_path = Path(load_root) / Path(load_filename)
+    with open(load_path, "rb") as f:
+        model = pickle.load(f)
 
-# image read
-# image_path_root = "../Assignment4-Materials/NumtaDB_with_aug"
-# img_train = load_image(image_path_root=image_path_root,
-#                        image_paths=X_train, output_dim=(28, 28))
+    print(f"Model loaded from {load_path}")
+    return model
 
-# view an image
-# view_image_info(X=X_train, y=y_train, images=img_train, index=5)
 
-# one hot encoding
-y_train_one_hot = one_hot_encoding(y_train)
+def predict_model(model, X, y):
+    # X: (n_samples, n_channels, height, width)
+    # y: (n_samples, n_classes)
+    # forward
+    forward_output = X
+    for layer in model:
+        forward_output = layer.forward(input=forward_output)
 
-# epoch
-epoch = 5
-losses = []
-accuracies = []
-for i in range(epoch):
-    print(f'epoch: {i}')
-    # loss, accuracy = train_model(model=the_cnn, X=img_train, y=y_train_one_hot)
-    loss, accuracy = train_model(model=the_cnn, X=X_train, y=y_train_one_hot)
-    losses.append(loss)
-    accuracies.append(accuracy)
+    # calculate loss
+    loss = cross_entropy_loss(y_pred=forward_output, y_true=y)
+    # calculate accuracy
+    acc = accuracy(y_pred=forward_output, y_true=y)
 
-# plot
-print(f'losses: {losses}')
-print(f'accuracies: {accuracies}')
-plt.plot(losses, label='loss')
-plt.plot(accuracies, label='accuracy')
-plt.legend()
-plt.show()
-plt.close()
+    # y_pred = np.argmax(forward_output, axis=1)
+    # y_true = np.argmax(y, axis=1)
 
-# predict
-# image read
-image_path_root = "../Assignment4-Materials/NumtaDB_with_aug"
-img_test = load_image(image_path_root=image_path_root,
-                      image_paths=X_test, output_dim=(28, 28))
+    # result_df = pd.DataFrame()
+    # result_df['y_pred'] = y_pred
+    # result_df['y_true'] = y_true
+    return forward_output, loss, acc
 
-# forward
-print(f'forward\r')
-forward_output = img_test
-for layer in the_cnn:
-    # print(f'layer: {layer.__class__.__name__}')
-    forward_output = layer.forward(input=forward_output)
 
-# predict
-y_pred = np.argmax(forward_output, axis=1)
-# print(f'y_pred: {y_pred}')
-# print(f'y_test: {y_test}')
-result_df = pd.DataFrame()
-result_df['y_pred'] = y_pred
-result_df['y_test'] = np.array(y_test)
-result_df['correct'] = result_df['y_pred'] == result_df['y_test']
-print(result_df)
-print(f'accuracy: {result_df["correct"].sum() / result_df.shape[0]}')
+if __name__ == "__main__":
 
-# view
-# for i in range(len(y_test)):
-#     view_image_info(X=X_test, y=y_test, images=img_test, index=i)
+    if NEW_RUN:
+        the_cnn = get_model(model_params=lenet_model_params)
+    else:
+        the_cnn = load_model(
+            load_root=save_root, load_filename="model_no_cache_1000-samples_0.2-test_ratio_42-random_seed_10-epochs_16-batch_size.pkl")
+
+    # dataset read
+    X_train, X_test, y_train, y_test = get_test_train_split(
+        csv_root=data_root,
+        csv_filenames=csv_filenames,
+        n_samples=n_samples, test_size=test_ratio, random_state=random_seed
+    )
+
+    if NEW_RUN:
+        # image read
+        X_img_train = load_image(image_path_root=data_root,
+                                 image_paths=X_train, output_dim=image_output_dim)
+
+        # view an image
+        # view_image_info(X=X_train, y=y_train, images=img_train, index=5)
+
+        # one hot encoding
+        y_train_one_hot = one_hot_encoding(y_train)
+
+        # epoch
+        epoch_loss = []
+        epoch_accuracy = []
+        for i in range(n_epochs):
+            print(f'epoch: {i}')
+            loss, acc = train_model(
+                model=the_cnn, X=X_img_train, y=y_train_one_hot,
+                batch_size=batch_size, learning_rate=learning_rate)
+            epoch_loss.append(loss)
+            epoch_accuracy.append(acc)
+
+        # plot
+        print(f'per epoch loss: {epoch_loss}')
+        print(f'per epoch accuracy: {epoch_accuracy}')
+        plt.plot(epoch_loss, label='loss')
+        plt.plot(epoch_accuracy, label='accuracy')
+        plt.legend()
+        plt.show()
+        plt.close()
+
+        # save model as pickle
+        save_model(model=the_cnn, save_root=save_root, save_filename=None)
+
+    # predict
+    # image read
+    X_img_test = load_image(image_path_root=data_root,
+                            image_paths=X_test, output_dim=image_output_dim)
+
+    # one hot encoding
+    y_test_one_hot = one_hot_encoding(y_test)
+
+    y_pred, loss, acc = predict_model(
+        model=the_cnn, X=X_img_test, y=y_test_one_hot)
+
+    print(f'loss: {loss}')
+    print(f'accuracy: {acc}')
+    # # plot the probability distribution
+    # plt.hist(y_pred, bins=y_pred.shape[1])
+    # plt.show()
+    # plt.close()
+    # # view
+    # for i in range(len(y_test)):
+    #     view_image_info(X=X_test, y=y_test, images=img_test, index=i)

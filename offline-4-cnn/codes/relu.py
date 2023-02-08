@@ -17,7 +17,7 @@ class ReLU(Layer):
         input_error = output_error.copy()
         input_error[input <= 0] = 0
 
-        # # clear cache
-        # input = None
-        # self.cache = None
+        # clear cache
+        input = None
+        self.cache = None
         return input_error

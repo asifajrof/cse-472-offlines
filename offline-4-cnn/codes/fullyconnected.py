@@ -54,7 +54,7 @@ class FullyConnected(Layer):
         # input_error: (batch_size, input_dim)
         input_error = np.matmul(output_error, self.weights.T)
 
-        # # clear cache
-        # input = None
-        # self.cache = None
+        # clear cache
+        input = None
+        self.cache = None
         return input_error
