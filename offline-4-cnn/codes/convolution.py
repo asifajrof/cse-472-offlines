@@ -97,18 +97,169 @@ class Convolution(Layer):
             'bcijkl,fckl->bfij',
             input_strided, self.weights
         )
+        output += self.biases.reshape(1, -1, 1, 1)
+
+        # self.cache = (input, input_padded, input_strided)
+        self.cache = input_padded
+        # self.cache = input
         return output
 
     def backward(self, output_error, learning_rate):
-        # num_filters, num_channels, filter_size, filter_size = self.filters.shape
-        # input_height, input_width = self.input.shape[2:]
-        # output_height, output_width = output_error.shape[1:]
-        # input_error = np.zeros(self.input.shape)
-        # for filter_num in range(num_filters):
-        #     for h in range(output_height):
-        #         for w in range(output_width):
-        #             input_error[:, :, h * self.stride:h * self.stride + filter_size, w * self.stride:w *
-        #                         self.stride + filter_size] += self.filters[filter_num] * output_error[filter_num, h, w]
-        #             self.filters[filter_num] += learning_rate * self.input[:, :, h * self.stride:h * self.stride +
-        #                                                                    filter_size, w * self.stride:w * self.stride + filter_size] * output_error[filter_num, h, w]
-        pass
+        # output_error: (batch_size, num_filters, output_height, output_width)
+        # learning_rate: learning rate
+        # input, input_padded, input_strided = self.cache
+        input_padded = self.cache
+        # input = self.cache
+
+        # dilate the output error
+        dilate = self.stride - 1
+        # insert dilate number of 0 rows/cols between each row/col
+        output_error_modified = np.insert(
+            output_error,
+            obj=np.arange(1, output_error.shape[2]).repeat(dilate),
+            values=0,
+            axis=2
+        )
+        output_error_modified = np.insert(
+            output_error_modified,
+            obj=np.arange(1, output_error_modified.shape[3]).repeat(dilate),
+            values=0,
+            axis=3
+        )
+
+        weights_error_height = input_padded.shape[2] - \
+            output_error_modified.shape[2] + 1
+        weights_error_width = input_padded.shape[3] - \
+            output_error_modified.shape[3] + 1
+
+        # check with original weights
+        # dilate the output error at the end
+        if weights_error_height > self.weights.shape[2]:
+            output_error_modified_weights = np.insert(
+                output_error_modified,
+                obj=np.array([output_error_modified.shape[2]]).repeat(
+                    weights_error_height - self.weights.shape[2]
+                ),
+                values=0,
+                axis=2
+            )
+        if weights_error_width > self.weights.shape[3]:
+            output_error_modified_weights = np.insert(
+                output_error_modified_weights,
+                obj=np.array([output_error_modified_weights.shape[3]]).repeat(
+                    weights_error_width - self.weights.shape[3]
+                ),
+                values=0,
+                axis=3
+            )
+
+        # update weights
+        # as strided
+        input_strided = np.lib.stride_tricks.as_strided(
+            input_padded,
+            shape=(
+                input_padded.shape[0],
+                input_padded.shape[1],
+                self.weights.shape[2],
+                self.weights.shape[3],
+                output_error_modified_weights.shape[2],
+                output_error_modified_weights.shape[3]
+            ),
+            strides=(
+                input_padded.strides[0],
+                input_padded.strides[1],
+                input_padded.strides[2],
+                input_padded.strides[3],
+                input_padded.strides[2],
+                input_padded.strides[3]
+            )
+        )
+        weights_error = np.einsum(
+            'bcklij,bfij->fckl',
+            input_strided, output_error_modified_weights
+        )
+        weights_error = weights_error * 1/input_padded.shape[0]
+        self.weights -= learning_rate * weights_error
+
+        # update biases
+        biases_error = np.sum(output_error_modified,
+                              axis=(0, 2, 3)) * 1/input_padded.shape[0]
+        self.biases -= learning_rate * biases_error
+
+        # input error calculation
+        padded_height = output_error_modified.shape[2] + \
+            2 * (self.filter_height - 1)
+        padded_width = output_error_modified.shape[3] + \
+            2 * (self.filter_width - 1)
+
+        input_error_height = padded_height - self.filter_height + 1
+        input_error_width = padded_width - self.filter_width + 1
+
+        # check with the original input
+        # dilate the output error at the end
+        if input_error_height < input_padded.shape[2]:
+            output_error_modified = np.insert(
+                output_error_modified,
+                obj=np.array([output_error_modified.shape[2]]).repeat(
+                    input_padded.shape[2] - input_error_height),
+                values=0,
+                axis=2
+            )
+        if input_error_width < input_padded.shape[3]:
+            output_error_modified = np.insert(
+                output_error_modified,
+                obj=np.array([output_error_modified.shape[3]]).repeat(
+                    input_padded.shape[3] - input_error_width),
+                values=0,
+                axis=3
+            )
+
+        # pad the output error with filter_size - 1
+        output_error_modified = np.pad(
+            output_error_modified,
+            (
+                (0, 0),
+                (0, 0),
+                (self.filter_height - 1, self.filter_height - 1),
+                (self.filter_width - 1, self.filter_width - 1)
+            ),
+            'constant'
+        )
+        # rotate the weights by 180
+        weights_modified = np.rot90(self.weights, 2, (2, 3))
+
+        # assert input_padded.shape[2] == output_error_modified.shape[2] - \
+        #     self.filter_height + 1
+        # assert input_padded.shape[3] == output_error_modified.shape[3] - \
+        #     self.filter_width + 1
+        # as strided
+        output_error_modified_strided = np.lib.stride_tricks.as_strided(
+            output_error_modified,
+            shape=(
+                output_error_modified.shape[0],
+                output_error_modified.shape[1],
+                input_padded.shape[2],
+                input_padded.shape[3],
+                self.filter_height,
+                self.filter_width
+            ),
+            strides=(
+                output_error_modified.strides[0],
+                output_error_modified.strides[1],
+                output_error_modified.strides[2],
+                output_error_modified.strides[3],
+                output_error_modified.strides[2],
+                output_error_modified.strides[3]
+            )
+        )
+        # einsum
+        input_error = np.einsum(
+            'bfijkl,fckl->bcij',
+            output_error_modified_strided, weights_modified
+        )
+
+        # drop the padded rows/cols
+        input_error = input_error[:, :, self.padding:-
+                                  self.padding, self.padding:-self.padding]
+
+        return input_error
