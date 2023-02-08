@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 
 csv_root = "../Assignment4-Materials/NumtaDB_with_aug/"
 csv_filenames = [
-    # "training-a.csv",
+    "training-a.csv",
     "training-b.csv",
-    # "training-c.csv",
+    "training-c.csv",
     # "training-d.csv",
     # "training-e.csv"
 ]
@@ -81,10 +81,11 @@ def load_image(image_path_root, image_paths, output_dim=(28, 28)):
 
 
 def view_image_info(X, y, images, index):
-    print(f'file: {X.iloc[index]}')
-    print(f'label: {y.iloc[index]}')
+    # print(f'file: {X.iloc[index]}')
+    # print(f'label: {y.iloc[index]}')
     # channel, height, width
     image = images[index].transpose(1, 2, 0)
+    plt.title(f'file: {X.iloc[index]}, label: {y.iloc[index]}')
     plt.imshow(image)
     plt.show()
     plt.close()

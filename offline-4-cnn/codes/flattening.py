@@ -18,7 +18,7 @@ class Flattening(Layer):
         # output_error: error of the next layer
         # learning_rate: learning rate
         input_shape = self.cache
-        input_error = output_error.reshape(self.input_shape)
+        input_error = output_error.reshape(input_shape)
 
         # # clear cache
         # input_shape = None

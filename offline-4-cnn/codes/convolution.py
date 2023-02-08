@@ -134,6 +134,7 @@ class Convolution(Layer):
 
         # check with original weights
         # dilate the output error at the end
+        output_error_modified_weights = output_error_modified.copy()
         if weights_error_height > self.weights.shape[2]:
             output_error_modified_weights = np.insert(
                 output_error_modified,

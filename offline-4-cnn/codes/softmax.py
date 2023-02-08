@@ -9,9 +9,10 @@ class Softmax(Layer):
 
     def forward(self, input):
         # np.exp overflow check
+        EPS = 1e-8
         input_limited = input - np.max(input, axis=1, keepdims=True)
         output = np.exp(input_limited)
-        output = output / np.sum(output, axis=1, keepdims=True)
+        output = (output + EPS) / (np.sum(output, axis=1, keepdims=True) + EPS)
         return output
 
     def backward(self, output_error, learning_rate):
