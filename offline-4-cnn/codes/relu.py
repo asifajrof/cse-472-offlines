@@ -8,13 +8,16 @@ class ReLU(Layer):
         pass
 
     def forward(self, input):
-        # self.input = input
-        # self.output = np.maximum(0, input)
-        # return self.output
-        pass
+        output = np.maximum(0, input)
+        self.cache = input
+        return output
 
     def backward(self, output_error, learning_rate):
-        # input_error = output_error.copy()
-        # input_error[self.input <= 0] = 0
-        # return input_error
-        pass
+        input = self.cache
+        input_error = output_error.copy()
+        input_error[input <= 0] = 0
+
+        # # clear cache
+        # input = None
+        # self.cache = None
+        return input_error

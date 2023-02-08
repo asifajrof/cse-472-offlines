@@ -11,7 +11,6 @@ class MaxPooling(Layer):
         pass
 
     def forward(self, input):
-        self.input = input
         batch_size, num_channels, height, width = input.shape
 
         output_height = int(
@@ -55,11 +54,11 @@ class MaxPooling(Layer):
         output = np.max(input_strided, axis=(4, 5))
 
         # special case when stride == filter_size
-        self.max_value_mask = None
+        max_value_mask = None
         # max_value_mask -> (batch_size, num_channels, input_height, input_width)
         if self.stride == self.filter_height:
             # initialize from output. repeating
-            self.max_value_mask = output.repeat(
+            max_value_mask = output.repeat(
                 self.stride,
                 axis=2
             ).repeat(
@@ -67,11 +66,11 @@ class MaxPooling(Layer):
                 axis=3
             )
             # pad for non-divisible input size
-            max_pad_height = height - self.max_value_mask.shape[2]
-            max_pad_width = width - self.max_value_mask.shape[3]
+            max_pad_height = height - max_value_mask.shape[2]
+            max_pad_width = width - max_value_mask.shape[3]
             if max_pad_height > 0 or max_pad_width > 0:
-                self.max_value_mask = np.pad(
-                    self.max_value_mask,
+                max_value_mask = np.pad(
+                    max_value_mask,
                     (
                         (0, 0),
                         (0, 0),
@@ -82,17 +81,20 @@ class MaxPooling(Layer):
                 )
             # compare with input
             # problem for multiple maxima :(
-            self.max_value_mask = np.equal(self.max_value_mask, input)
+            max_value_mask = np.equal(max_value_mask, input)
+
+        self.cache = input, max_value_mask
 
         return output
 
     def backward(self, output_error, learning_rate):
         # output_error. (batch_size, num_channels, out_height, out_width)
-        batch_size, num_channels, height, width = self.input.shape
+        input, max_value_mask = self.cache
+        batch_size, num_channels, height, width = input.shape
         # special case when stride == filter_size
         if self.stride == self.filter_height:
             # check if max_value_mask is not None
-            if self.max_value_mask is None:
+            if max_value_mask is None:
                 raise Exception(
                     'max_value_mask is None. Check if stride == filter_height')
             else:
@@ -121,20 +123,20 @@ class MaxPooling(Layer):
                 # element-wise multiplication
                 input_error = np.einsum(
                     'ijkl,ijkl->ijkl',
-                    self.max_value_mask,
+                    max_value_mask,
                     repeated_output_error
                 )
 
         else:
             # for loop
             _, _, output_height, output_width = output_error.shape
-            input_error = np.zeros(self.input.shape)
+            input_error = np.zeros(input.shape)
 
             for i in range(batch_size):
                 for j in range(num_channels):
                     for h in range(output_height):
                         for w in range(output_width):
-                            input_window = self.input[
+                            input_window = input[
                                 i,
                                 j,
                                 h*self.stride:h*self.stride+self.filter_height,
@@ -150,4 +152,8 @@ class MaxPooling(Layer):
                             # https://ai.stackexchange.com/a/17109
                             input_error[max_index] += output_error[i, j, h, w]
 
+        # # clear cache
+        # input = None
+        # max_value_mask = None
+        # self.cache = None
         return input_error

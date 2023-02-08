@@ -262,4 +262,8 @@ class Convolution(Layer):
         input_error = input_error[:, :, self.padding:-
                                   self.padding, self.padding:-self.padding]
 
+        # # clear cache
+        # input_padded = None
+        # self.cache = None
+
         return input_error

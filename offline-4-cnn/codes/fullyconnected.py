@@ -15,7 +15,6 @@ class FullyConnected(Layer):
     def forward(self, input):
         # input: (batch_size, input_dim)
         batch_size, input_dim = input.shape
-        self.input = input
 
         # weights: (input_dim, output_dim)
         # initialize weights xaiver initialization
@@ -33,16 +32,19 @@ class FullyConnected(Layer):
 
         # output: (batch_size, output_dim)
         output = np.matmul(input, self.weights) + self.bias
+
+        self.cache = input
         return output
 
     def backward(self, output_error, learning_rate):
         # output_error: (batch_size, output_dim)
         # learning_rate:
-        # self.input: (batch_size, input_dim)
+        # input: (batch_size, input_dim)
+        input = self.cache
         batch_size, output_dim = output_error.shape
 
         # weights: (input_dim, output_dim)
-        weights_error = np.matmul(self.input.T, output_error) * 1/batch_size
+        weights_error = np.matmul(input.T, output_error) * 1/batch_size
         self.weights -= learning_rate * weights_error
 
         # bias: (1, output_dim)
@@ -51,4 +53,8 @@ class FullyConnected(Layer):
 
         # input_error: (batch_size, input_dim)
         input_error = np.matmul(output_error, self.weights.T)
+
+        # # clear cache
+        # input = None
+        # self.cache = None
         return input_error

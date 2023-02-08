@@ -8,13 +8,12 @@ class Softmax(Layer):
         pass
 
     def forward(self, input):
-        # self.input = input
-        # self.output = np.exp(input) / np.sum(np.exp(input),
-        #                                      axis=1, keepdims=True)
-        # return self.output
-        pass
+        # np.exp overflow check
+        input_limited = input - np.max(input, axis=1, keepdims=True)
+        output = np.exp(input_limited)
+        output = output / np.sum(output, axis=1, keepdims=True)
+        return output
 
     def backward(self, output_error, learning_rate):
-        # input_error = output_error.copy()
-        # return input_error
-        pass
+        input_error = output_error.copy()
+        return input_error
