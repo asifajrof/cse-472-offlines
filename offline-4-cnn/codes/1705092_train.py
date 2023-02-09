@@ -19,18 +19,13 @@ import pickle
 random_seed = 0
 np.random.seed(random_seed)
 test_ratio = 0.2
-# n_samples = 45000
-n_samples = 100000
-# n_epochs = 10
-n_epochs = 5
-# batch_size = 64
+n_samples = 100
+n_epochs = 10
 batch_size = 8
 learning_rate = 0.001
 
-RUN_TYPE = "test"    # "new" or "load" or "test"
-model_filename = "model_45000-samples_0.2-test_ratio_42-random_seed_10-epochs_64-batch_size.pkl"
-
-data_root = "../Assignment4-Materials/NumtaDB_with_aug/"
+# data_root = "../NumtaDB/"
+data_root = "../Assignment4-Materials/NumtaDB_with_aug"
 csv_filenames = [
     "training-a.csv",
     "training-b.csv",
@@ -39,17 +34,9 @@ csv_filenames = [
     # "training-e.csv"
 ]
 
-csv_filenames_test = [
-    # "training-a.csv",
-    # "training-b.csv",
-    # "training-c.csv",
-    "training-d.csv",
-    # "training-e.csv"
-]
-
 save_root = "../saved/"
 
-image_output_dim = (28, 28)
+image_output_dim = (32, 32)
 lenet_model_params = [
     {
         "type": "convolution",
@@ -95,21 +82,9 @@ lenet_model_params = [
     }
 ]
 
-labels = np.arange(10)
-
 # ===================================================================================================================
 # utils.py
 # ===================================================================================================================
-# import pandas as pd
-# from pathlib import Path
-# from sklearn.model_selection import train_test_split
-# from sklearn.metrics import accuracy_score
-# from sklearn.metrics import f1_score
-# from sklearn.metrics import confusion_matrix
-# import numpy as np
-# import cv2
-# from tqdm import tqdm
-# import matplotlib.pyplot as plt
 
 
 def read_all_csv(csv_root, csv_filenames):
@@ -166,19 +141,26 @@ def load_image(image_path_root, image_paths, output_dim=(28, 28)):
         try:
             # read image
             str_image_path = str(Path(image_path_root)/Path(image_path))
-            # print(f'image path: {str_image_path}')
             image = cv2.imread(str_image_path)
-            # resize
-            # print(f'image shape: {image.shape}, output_dim: {output_dim}')
-            image = cv2.resize(image, output_dim)
-            # convert to rgb
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             # black ink on white page. invert
             image = 255 - image
+            # erosion and dilation
+            kernel = np.ones((5, 5), np.uint8)
+            image = cv2.erode(image, kernel, iterations=1)
+            image = cv2.dilate(image, kernel, iterations=1)
+            # threshold otsu -> greyscaled
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            _, image = cv2.threshold(
+                image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # resize
+            image = cv2.resize(image, output_dim, interpolation=cv2.INTER_AREA)
+            # # convert to rgb
+            # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             # normalize
             image = image / 255
-            # channel, height, width
-            image = image.transpose(2, 0, 1)
+            # (height, width) -> (channel, height, width)
+            image = image.reshape(1, image.shape[0], image.shape[1])
+            # image = image.transpose(2, 0, 1)
             images.append(image)
         except Exception as e:
             print(e)
@@ -259,7 +241,7 @@ def get_confusion_matrix(y_true, y_pred):
 
 
 class Layer:
-    def forward(self, input):
+    def forward(self, input, inference=False):
         # input.
         # returns output
         raise NotImplementedError
@@ -298,7 +280,7 @@ class Convolution(Layer):
         self.weights = None
         self.biases = None
 
-    def forward(self, input):
+    def forward(self, input, inference=False):
         # input: (batch_size, num_channels, input_height, input_width)
         batch_size, num_channels, input_height, input_width = input.shape
 
@@ -360,7 +342,8 @@ class Convolution(Layer):
         )
         output += self.biases.reshape(1, -1, 1, 1)
 
-        self.cache = input_padded
+        if not inference:
+            self.cache = input_padded
         return output
 
     def backward(self, output_error, learning_rate):
@@ -540,7 +523,7 @@ class MaxPooling(Layer):
         self.stride = stride
         pass
 
-    def forward(self, input):
+    def forward(self, input, inference=False):
         batch_size, num_channels, height, width = input.shape
 
         output_height = int(
@@ -600,7 +583,8 @@ class MaxPooling(Layer):
             # problem for multiple maxima :(
             max_value_mask = np.equal(max_value_mask, input)
 
-        self.cache = input, max_value_mask
+        if not inference:
+            self.cache = input, max_value_mask
 
         return output
 
@@ -689,9 +673,11 @@ class ReLU(Layer):
     def __init__(self):
         pass
 
-    def forward(self, input):
+    def forward(self, input, inference=False):
         output = np.maximum(0, input)
-        self.cache = input
+
+        if not inference:
+            self.cache = input
         return output
 
     def backward(self, output_error, learning_rate):
@@ -718,12 +704,14 @@ class Flattening(Layer):
     def __init__(self):
         pass
 
-    def forward(self, input):
+    def forward(self, input, inference=False):
         # input: convolutional filter map
         # output: flattened input. as row vectors.
         input_shape = input.shape
         output = input.reshape(input.shape[0], -1)
-        self.cache = input_shape
+
+        if not inference:
+            self.cache = input_shape
         return output
 
     def backward(self, output_error, learning_rate):
@@ -757,7 +745,7 @@ class FullyConnected(Layer):
         self.weights = None
         self.bias = None
 
-    def forward(self, input):
+    def forward(self, input, inference=False):
         # input: (batch_size, input_dim)
         batch_size, input_dim = input.shape
 
@@ -778,7 +766,8 @@ class FullyConnected(Layer):
         # output: (batch_size, output_dim)
         output = np.matmul(input, self.weights) + self.bias
 
-        self.cache = input
+        if not inference:
+            self.cache = input
         return output
 
     def backward(self, output_error, learning_rate):
@@ -818,7 +807,7 @@ class Softmax(Layer):
     def __init__(self):
         pass
 
-    def forward(self, input):
+    def forward(self, input, inference=False):
         EPS = 1e-8
         # np.exp overflow check
         input_limited = input - np.max(input, axis=1, keepdims=True)
@@ -850,93 +839,6 @@ class Softmax(Layer):
 # ===================================================================================================================
 # model.py
 # ===================================================================================================================
-# from basic_components import *
-# from utils import *
-# from tqdm import tqdm
-# import numpy as np
-# import pickle
-
-
-# random_seed = 0
-# np.random.seed(random_seed)
-# test_ratio = 0.2
-# # n_samples = 45000
-# n_samples = 100000
-# # n_epochs = 10
-# n_epochs = 5
-# # batch_size = 64
-# batch_size = 8
-# learning_rate = 0.001
-
-# RUN_TYPE = "test"    # "new" or "load" or "test"
-# model_filename = "model_45000-samples_0.2-test_ratio_42-random_seed_10-epochs_64-batch_size.pkl"
-
-# data_root = "../Assignment4-Materials/NumtaDB_with_aug/"
-# csv_filenames = [
-#     "training-a.csv",
-#     "training-b.csv",
-#     "training-c.csv",
-#     # "training-d.csv",
-#     # "training-e.csv"
-# ]
-
-# csv_filenames_test = [
-#     # "training-a.csv",
-#     # "training-b.csv",
-#     # "training-c.csv",
-#     "training-d.csv",
-#     # "training-e.csv"
-# ]
-
-# save_root = "../saved/"
-
-# image_output_dim = (28, 28)
-# lenet_model_params = [
-#     {
-#         "type": "convolution",
-#         "num_filters": 6,
-#         "filter_dim": (5, 5),
-#         "stride": 1,
-#         "padding": 0
-#     }, {
-#         "type": "relu"
-#     }, {
-#         "type": "maxpooling",
-#         "filter_dim": (2, 2),
-#         "stride": 2
-#     }, {
-#         "type": "convolution",
-#         "num_filters": 16,
-#         "filter_dim": (5, 5),
-#         "stride": 1,
-#         "padding": 0
-#     }, {
-#         "type": "relu"
-#     }, {
-#         "type": "maxpooling",
-#         "filter_dim": (2, 2),
-#         "stride": 2
-#     }, {
-#         "type": "flattening"
-#     }, {
-#         "type": "fullyconnected",
-#         "output_dim": 120
-#     }, {
-#         "type": "relu"
-#     }, {
-#         "type": "fullyconnected",
-#         "output_dim": 84
-#     }, {
-#         "type": "relu"
-#     }, {
-#         "type": "fullyconnected",
-#         "output_dim": 10
-#     }, {
-#         "type": "softmax"
-#     }
-# ]
-
-# labels = np.arange(10)
 
 
 def create_model(model_params):
@@ -1044,7 +946,7 @@ def predict_model(model, X, y):
     # forward
     forward_output = X
     for layer in tqdm(model):
-        forward_output = layer.forward(input=forward_output)
+        forward_output = layer.forward(input=forward_output, inference=True)
 
     # calculate loss
     loss = cross_entropy_loss(y_pred=forward_output, y_true=y)
@@ -1057,118 +959,66 @@ def predict_model(model, X, y):
 
 
 if __name__ == "__main__":
-    if RUN_TYPE == "new":
-        the_cnn = create_model(model_params=lenet_model_params)
-    elif RUN_TYPE == "test":
-        the_cnn = load_model(
-            load_root=save_root, load_filename=model_filename)
-    elif RUN_TYPE == "load":
-        the_cnn = load_model(
-            load_root=save_root, load_filename=model_filename)
+    the_cnn = create_model(model_params=lenet_model_params)
+    # dataset read
+    X_train, X_test, y_train, y_test = get_test_train_split(
+        csv_root=data_root,
+        csv_filenames=csv_filenames,
+        n_samples=n_samples, test_size=test_ratio, random_state=random_seed
+    )
 
-    if RUN_TYPE == "new" or RUN_TYPE == "load":
-        # dataset read
-        X_train, X_test, y_train, y_test = get_test_train_split(
-            csv_root=data_root,
-            csv_filenames=csv_filenames,
-            n_samples=n_samples, test_size=test_ratio, random_state=random_seed
-        )
-    elif RUN_TYPE == "test":
-        # dataset read
-        X_test, y_test = get_test_set(
-            csv_root=data_root,
-            csv_filenames=csv_filenames_test,
-            n_samples=n_samples, random_state=random_seed
-        )
+    # image read
+    X_img_train = load_image(image_path_root=data_root,
+                             image_paths=X_train, output_dim=image_output_dim)
+    X_img_test = load_image(image_path_root=data_root,
+                            image_paths=X_test, output_dim=image_output_dim)
+    # one hot encoding
+    y_train_one_hot = one_hot_encoding(y_train)
+    y_test_one_hot = one_hot_encoding(y_test)
 
-    if RUN_TYPE == "new":
-        # image read
-        X_img_train = load_image(image_path_root=data_root,
-                                 image_paths=X_train, output_dim=image_output_dim)
-        # one hot encoding
-        y_train_one_hot = one_hot_encoding(y_train)
-        # image read
-        X_img_test = load_image(image_path_root=data_root,
-                                image_paths=X_test, output_dim=image_output_dim)
-        # one hot encoding
-        y_test_one_hot = one_hot_encoding(y_test)
+    # epoch
+    train_loss = []
+    train_accuracy = []
+    val_loss = []
+    val_accuracy = []
+    val_f1 = []
+    final_pred = None
+    for i in range(n_epochs):
+        print(f'epoch: {i}')
+        loss, acc = train_model(
+            model=the_cnn, X=X_img_train, y=y_train_one_hot,
+            batch_size=batch_size, learning_rate=learning_rate)
+        train_loss.append(loss)
+        train_accuracy.append(acc)
 
-        # epoch
-        train_loss = []
-        train_accuracy = []
-        val_loss = []
-        val_accuracy = []
-        val_f1 = []
-        final_pred = None
-        for i in range(n_epochs):
-            print(f'epoch: {i}')
-            loss, acc = train_model(
-                model=the_cnn, X=X_img_train, y=y_train_one_hot,
-                batch_size=batch_size, learning_rate=learning_rate)
-            train_loss.append(loss)
-            train_accuracy.append(acc)
-            print(f'training loss: {loss}')
-            print(f'training accuracy: {acc}')
-
-            # predict
-            y_pred, loss, acc, f1 = predict_model(
-                model=the_cnn, X=X_img_test, y=y_test_one_hot)
-            val_loss.append(loss)
-            val_accuracy.append(acc)
-            val_f1.append(f1)
-            print(f'validation loss: {loss}')
-            print(f'validation accuracy: {acc}')
-            print(f'validation f1 score: {f1}')
-
-            if i == n_epochs - 1:
-                final_pred = y_pred
-
-        # plot
-        print(f'per epoch train loss: {train_loss}')
-        print(f'per epoch train accuracy: {train_accuracy}')
-        print(f'per epoch validation loss: {val_loss}')
-        print(f'per epoch validation accuracy: {val_accuracy}')
-        print(f'per epoch validation f1 score: {val_f1}')
-        plt.title(f'{n_samples}-samples\nMetrics')
-        plt.plot(train_loss, label='train_loss')
-        plt.plot(train_accuracy, label='train_accuracy')
-        plt.plot(val_loss, label='val_loss')
-        plt.plot(val_accuracy, label='val_accuracy')
-        plt.plot(val_f1, label='val_f1')
-        plt.xlabel('epoch')
-        plt.legend()
-        save_plot_filename = f"plot_model_{n_samples}-samples_{test_ratio}-test_ratio_{random_seed}-random_seed_{n_epochs}-epochs_{batch_size}-batch_size.pdf"
-        # plt.show()
-        Path(save_root).mkdir(parents=True, exist_ok=True)
-        save_plot_filepath = Path(save_root) / Path(save_plot_filename)
-        plt.savefig(f'{save_plot_filepath}', dpi=300)
-        plt.close()
-
-        cm = get_confusion_matrix(
-            y_true=y_test_one_hot, y_pred=final_pred)
-        print(f'confusion matrix:\n{cm}')
-
-        # save model as pickle
-        save_model_filename = f"model_{n_samples}-samples_{test_ratio}-test_ratio_{random_seed}-random_seed_{n_epochs}-epochs_{batch_size}-batch_size.pkl"
-        save_model(model=the_cnn, save_root=save_root,
-                   save_filename=save_model_filename)
-
-    elif RUN_TYPE == "load" or RUN_TYPE == "test":
         # predict
-        # image read
-        X_img_test = load_image(image_path_root=data_root,
-                                image_paths=X_test, output_dim=image_output_dim)
-
-        # one hot encoding
-        y_test_one_hot = one_hot_encoding(y_test)
-
         y_pred, loss, acc, f1 = predict_model(
             model=the_cnn, X=X_img_test, y=y_test_one_hot)
+        val_loss.append(loss)
+        val_accuracy.append(acc)
+        val_f1.append(f1)
 
-        print(f'testing loss: {loss}')
-        print(f'testing accuracy: {acc}')
-        print(f'testing f1 score: {f1}')
+        if i == n_epochs - 1:
+            final_pred = y_pred
 
-        cm = get_confusion_matrix(
-            y_true=y_test_one_hot, y_pred=y_pred)
-        print(f'confusion matrix:\n{cm}')
+    cm = get_confusion_matrix(
+        y_true=y_test_one_hot, y_pred=final_pred)
+
+    # save model as pickle
+    save_model_filename = f"model_{n_samples}-samples_{test_ratio}-test_ratio_{random_seed}-random_seed_{n_epochs}-epochs_{batch_size}-batch_size.pkl"
+    save_model(model=the_cnn, save_root=save_root,
+               save_filename=save_model_filename)
+
+    # save the metrics as pickle
+    # make dictionary
+    metrics = {
+        'train_loss': train_loss,
+        'train_accuracy': train_accuracy,
+        'val_loss': val_loss,
+        'val_accuracy': val_accuracy,
+        'val_f1': val_f1,
+        'confusion_matrix': cm
+    }
+    save_metrics_filename = f"metrics_{n_samples}-samples_{test_ratio}-test_ratio_{random_seed}-random_seed_{n_epochs}-epochs_{batch_size}-batch_size.pkl"
+    save_model(model=metrics, save_root=save_root,
+               save_filename=save_metrics_filename)
