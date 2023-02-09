@@ -4,15 +4,19 @@ from tqdm import tqdm
 import numpy as np
 import pickle
 
-random_seed = 42
+random_seed = 0
 np.random.seed(random_seed)
 test_ratio = 0.2
-n_samples = 1000
-n_epochs = 10
-batch_size = 16
+# n_samples = 45000
+n_samples = 100
+# n_epochs = 10
+n_epochs = 5
+# batch_size = 64
+batch_size = 8
 learning_rate = 0.001
 
-NEW_RUN = False
+NEW_RUN = True
+model_filename = "model.pkl"
 
 data_root = "../Assignment4-Materials/NumtaDB_with_aug/"
 csv_filenames = [
@@ -71,8 +75,10 @@ lenet_model_params = [
     }
 ]
 
+labels = np.arange(10)
 
-def get_model(model_params):
+
+def create_model(model_params):
     model = []
     for layer in model_params:
         if layer["type"] == "convolution":
@@ -106,33 +112,25 @@ def get_model(model_params):
     return model
 
 
-def one_hot_encoding(y):
-    # y: (n_samples, )
-    # y_one_hot: (n_samples, n_classes)
-    n_samples = y.shape[0]
-    n_classes = np.unique(y).shape[0]
-    y_one_hot = np.zeros((n_samples, n_classes))
-    y_one_hot[range(n_samples), y] = 1
-    return y_one_hot
+def save_model(model, save_root, save_filename):
+    # pathlib Path make dir if not exist
+    Path(save_root).mkdir(parents=True, exist_ok=True)
+    if save_filename is None:
+        save_filename = f"model_{n_samples}-samples_{test_ratio}-test_ratio_{random_seed}-random_seed_{n_epochs}-epochs_{batch_size}-batch_size.pkl"
+    save_path = Path(save_root) / Path(save_filename)
+    with open(save_path, "wb") as f:
+        pickle.dump(model, f)
+
+    print(f"Model saved to {save_path}")
 
 
-def cross_entropy_loss(y_pred, y_true):
-    # y_pred: (n_samples, n_classes)
-    # y_true: (n_samples, n_classes)
-    # loss: scalar
-    EPS = 1e-8
-    loss = -np.sum(y_true * np.log(y_pred + EPS)) / y_pred.shape[0]
-    return loss
+def load_model(load_root, load_filename):
+    load_path = Path(load_root) / Path(load_filename)
+    with open(load_path, "rb") as f:
+        model = pickle.load(f)
 
-
-def accuracy(y_pred, y_true):
-    # y_pred: (n_samples,n_classes)
-    # y_true: (n_samples,n_classes)
-    # acc: scalar
-    y_pred = np.argmax(y_pred, axis=1)
-    y_true = np.argmax(y_true, axis=1)
-    acc = np.sum(y_pred == y_true) / y_pred.shape[0]
-    return acc
+    print(f"Model loaded from {load_path}")
+    return model
 
 
 def train_model(model, X, y, batch_size=32, learning_rate=0.001):
@@ -162,7 +160,7 @@ def train_model(model, X, y, batch_size=32, learning_rate=0.001):
             y_pred=forward_output, y_true=y[batch_start:batch_end])
         batch_loss.append(loss)
         # calculate accuracy
-        acc = accuracy(y_pred=forward_output, y_true=y_batch)
+        acc = accuracy(y_true=y_batch, y_pred=forward_output)
         batch_acc.append(acc)
 
         # backward
@@ -180,27 +178,6 @@ def train_model(model, X, y, batch_size=32, learning_rate=0.001):
     return avg_loss, avg_acc
 
 
-def save_model(model, save_root, save_filename):
-    # pathlib Path make dir if not exist
-    Path(save_root).mkdir(parents=True, exist_ok=True)
-    if save_filename is None:
-        save_filename = f"model_{n_samples}-samples_{test_ratio}-test_ratio_{random_seed}-random_seed_{n_epochs}-epochs_{batch_size}-batch_size.pkl"
-    save_path = Path(save_root) / Path(save_filename)
-    with open(save_path, "wb") as f:
-        pickle.dump(model, f)
-
-    print(f"Model saved to {save_path}")
-
-
-def load_model(load_root, load_filename):
-    load_path = Path(load_root) / Path(load_filename)
-    with open(load_path, "rb") as f:
-        model = pickle.load(f)
-
-    print(f"Model loaded from {load_path}")
-    return model
-
-
 def predict_model(model, X, y):
     # X: (n_samples, n_channels, height, width)
     # y: (n_samples, n_classes)
@@ -212,24 +189,20 @@ def predict_model(model, X, y):
     # calculate loss
     loss = cross_entropy_loss(y_pred=forward_output, y_true=y)
     # calculate accuracy
-    acc = accuracy(y_pred=forward_output, y_true=y)
+    acc = accuracy(y_true=y, y_pred=forward_output)
+    # calculate f1 score
+    f1 = macro_f1_score(y_true=y, y_pred=forward_output)
 
-    # y_pred = np.argmax(forward_output, axis=1)
-    # y_true = np.argmax(y, axis=1)
-
-    # result_df = pd.DataFrame()
-    # result_df['y_pred'] = y_pred
-    # result_df['y_true'] = y_true
-    return forward_output, loss, acc
+    return forward_output, loss, acc, f1
 
 
 if __name__ == "__main__":
 
     if NEW_RUN:
-        the_cnn = get_model(model_params=lenet_model_params)
+        the_cnn = create_model(model_params=lenet_model_params)
     else:
         the_cnn = load_model(
-            load_root=save_root, load_filename="model_no_cache_1000-samples_0.2-test_ratio_42-random_seed_10-epochs_16-batch_size.pkl")
+            load_root=save_root, load_filename=model_filename)
 
     # dataset read
     X_train, X_test, y_train, y_test = get_test_train_split(
@@ -242,53 +215,83 @@ if __name__ == "__main__":
         # image read
         X_img_train = load_image(image_path_root=data_root,
                                  image_paths=X_train, output_dim=image_output_dim)
-
-        # view an image
-        # view_image_info(X=X_train, y=y_train, images=img_train, index=5)
-
         # one hot encoding
         y_train_one_hot = one_hot_encoding(y_train)
+        # image read
+        X_img_test = load_image(image_path_root=data_root,
+                                image_paths=X_test, output_dim=image_output_dim)
+        # one hot encoding
+        y_test_one_hot = one_hot_encoding(y_test)
 
         # epoch
-        epoch_loss = []
-        epoch_accuracy = []
+        train_loss = []
+        train_accuracy = []
+        val_loss = []
+        val_accuracy = []
+        val_f1 = []
+        final_pred = None
         for i in range(n_epochs):
             print(f'epoch: {i}')
             loss, acc = train_model(
                 model=the_cnn, X=X_img_train, y=y_train_one_hot,
                 batch_size=batch_size, learning_rate=learning_rate)
-            epoch_loss.append(loss)
-            epoch_accuracy.append(acc)
+            train_loss.append(loss)
+            train_accuracy.append(acc)
+            print(f'training loss: {loss}')
+            print(f'training accuracy: {acc}')
+
+            # predict
+            y_pred, loss, acc, f1 = predict_model(
+                model=the_cnn, X=X_img_test, y=y_test_one_hot)
+            val_loss.append(loss)
+            val_accuracy.append(acc)
+            val_f1.append(f1)
+            print(f'validation loss: {loss}')
+            print(f'validation accuracy: {acc}')
+            print(f'validation f1 score: {f1}')
+
+            if i == n_epochs - 1:
+                final_pred = y_pred
 
         # plot
-        print(f'per epoch loss: {epoch_loss}')
-        print(f'per epoch accuracy: {epoch_accuracy}')
-        plt.plot(epoch_loss, label='loss')
-        plt.plot(epoch_accuracy, label='accuracy')
+        print(f'per epoch train loss: {train_loss}')
+        print(f'per epoch train accuracy: {train_accuracy}')
+        print(f'per epoch validation loss: {val_loss}')
+        print(f'per epoch validation accuracy: {val_accuracy}')
+        print(f'per epoch validation f1 score: {val_f1}')
+        plt.title(f'{n_samples}-samples\nMetrics')
+        plt.plot(train_loss, label='train_loss')
+        plt.plot(train_accuracy, label='train_accuracy')
+        plt.plot(val_loss, label='val_loss')
+        plt.plot(val_accuracy, label='val_accuracy')
+        plt.plot(val_f1, label='val_f1')
+        plt.xlabel('epoch')
         plt.legend()
         plt.show()
         plt.close()
 
+        cm = get_confusion_matrix(
+            y_true=y_test_one_hot, y_pred=final_pred, labels=labels)
+        print(f'confusion matrix:\n{cm}')
+
         # save model as pickle
         save_model(model=the_cnn, save_root=save_root, save_filename=None)
+    else:
+        # predict
+        # image read
+        X_img_test = load_image(image_path_root=data_root,
+                                image_paths=X_test, output_dim=image_output_dim)
 
-    # predict
-    # image read
-    X_img_test = load_image(image_path_root=data_root,
-                            image_paths=X_test, output_dim=image_output_dim)
+        # one hot encoding
+        y_test_one_hot = one_hot_encoding(y_test)
 
-    # one hot encoding
-    y_test_one_hot = one_hot_encoding(y_test)
+        y_pred, loss, acc, f1 = predict_model(
+            model=the_cnn, X=X_img_test, y=y_test_one_hot)
 
-    y_pred, loss, acc = predict_model(
-        model=the_cnn, X=X_img_test, y=y_test_one_hot)
+        print(f'testing loss: {loss}')
+        print(f'testing accuracy: {acc}')
+        print(f'testing f1 score: {f1}')
 
-    print(f'loss: {loss}')
-    print(f'accuracy: {acc}')
-    # # plot the probability distribution
-    # plt.hist(y_pred, bins=y_pred.shape[1])
-    # plt.show()
-    # plt.close()
-    # # view
-    # for i in range(len(y_test)):
-    #     view_image_info(X=X_test, y=y_test, images=img_test, index=i)
+        cm = get_confusion_matrix(
+            y_true=y_test_one_hot, y_pred=y_pred, labels=labels)
+        print(f'confusion matrix:\n{cm}')

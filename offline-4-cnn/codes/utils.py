@@ -1,6 +1,9 @@
 import pandas as pd
 from pathlib import Path
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import f1_score
+from sklearn.metrics import confusion_matrix
 import numpy as np
 import cv2
 from tqdm import tqdm
@@ -81,3 +84,57 @@ def view_image_info(X, y, images, index):
     plt.imshow(image)
     plt.show()
     plt.close()
+
+
+def one_hot_encoding(y):
+    # y: (n_samples, )
+    # y_one_hot: (n_samples, n_classes)
+    n_samples = y.shape[0]
+    n_classes = np.unique(y).shape[0]
+    y_one_hot = np.zeros((n_samples, n_classes))
+    y_one_hot[range(n_samples), y] = 1
+    return y_one_hot
+
+
+def cross_entropy_loss(y_pred, y_true):
+    # y_pred: (n_samples, n_classes)
+    # y_true: (n_samples, n_classes)
+    # loss: scalar
+    EPS = 1e-8
+    loss = -np.sum(y_true * np.log(y_pred + EPS)) / y_pred.shape[0]
+    return loss
+
+
+def accuracy(y_true, y_pred):
+    # y_true: (n_samples,n_classes)
+    # y_pred: (n_samples,n_classes)
+    # acc: scalar
+    y_true = np.argmax(y_true, axis=1)
+    y_pred = np.argmax(y_pred, axis=1)
+    acc = np.sum(y_pred == y_true) / y_pred.shape[0]
+    sklearn_acc = accuracy_score(y_true, y_pred)
+    try:
+        assert acc == sklearn_acc
+    except AssertionError:
+        print(f'AssertionError: acc: {acc}, sklearn_acc: {sklearn_acc}')
+    return sklearn_acc
+
+
+def macro_f1_score(y_true, y_pred):
+    # y_true: (n_samples,n_classes)
+    # y_pred: (n_samples,n_classes)
+    # f1: scalar
+    y_true = np.argmax(y_true, axis=1)
+    y_pred = np.argmax(y_pred, axis=1)
+    f1 = f1_score(y_true=y_true, y_pred=y_pred, average='macro')
+    return f1
+
+
+def get_confusion_matrix(y_true, y_pred, labels):
+    # y_true: (n_samples,n_classes)
+    # y_pred: (n_samples,n_classes)
+    # confusion_matrix: (n_classes,n_classes)
+    y_true = np.argmax(y_true, axis=1)
+    y_pred = np.argmax(y_pred, axis=1)
+    cm = confusion_matrix(y_true=y_true, y_pred=y_pred, labels=labels)
+    return cm
