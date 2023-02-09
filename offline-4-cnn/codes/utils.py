@@ -49,6 +49,15 @@ def get_test_train_split(csv_root, csv_filenames, n_samples=5000, test_size=0.2,
     return X_train, X_test, y_train, y_test
 
 
+def get_test_set(csv_root, csv_filenames, n_samples=5000, random_state=42):
+    merged_df = read_all_csv(csv_root, csv_filenames)
+    dataset_df = get_dataset(
+        merged_df, n_samples=n_samples, random_state=random_state)
+    X = dataset_df["database name"] + "/" + dataset_df["filename"]
+    y = dataset_df["digit"]
+    return X, y
+
+
 def load_image(image_path_root, image_paths, output_dim=(28, 28)):
     images = []
     for image_path in tqdm(image_paths):

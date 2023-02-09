@@ -8,15 +8,15 @@ random_seed = 0
 np.random.seed(random_seed)
 test_ratio = 0.2
 # n_samples = 45000
-n_samples = 100
+n_samples = 100000
 # n_epochs = 10
 n_epochs = 5
 # batch_size = 64
 batch_size = 8
 learning_rate = 0.001
 
-NEW_RUN = True
-model_filename = "model.pkl"
+RUN_TYPE = "test"    # "new" or "load" or "test"
+model_filename = "model_45000-samples_0.2-test_ratio_42-random_seed_10-epochs_64-batch_size.pkl"
 
 data_root = "../Assignment4-Materials/NumtaDB_with_aug/"
 csv_filenames = [
@@ -24,6 +24,14 @@ csv_filenames = [
     "training-b.csv",
     "training-c.csv",
     # "training-d.csv",
+    # "training-e.csv"
+]
+
+csv_filenames_test = [
+    # "training-a.csv",
+    # "training-b.csv",
+    # "training-c.csv",
+    "training-d.csv",
     # "training-e.csv"
 ]
 
@@ -181,9 +189,10 @@ def train_model(model, X, y, batch_size=32, learning_rate=0.001):
 def predict_model(model, X, y):
     # X: (n_samples, n_channels, height, width)
     # y: (n_samples, n_classes)
+    print(f'Predicting {X.shape[0]} samples...')
     # forward
     forward_output = X
-    for layer in model:
+    for layer in tqdm(model):
         forward_output = layer.forward(input=forward_output)
 
     # calculate loss
@@ -197,21 +206,31 @@ def predict_model(model, X, y):
 
 
 if __name__ == "__main__":
-
-    if NEW_RUN:
+    if RUN_TYPE == "new":
         the_cnn = create_model(model_params=lenet_model_params)
-    else:
+    elif RUN_TYPE == "test":
+        the_cnn = load_model(
+            load_root=save_root, load_filename=model_filename)
+    elif RUN_TYPE == "load":
         the_cnn = load_model(
             load_root=save_root, load_filename=model_filename)
 
-    # dataset read
-    X_train, X_test, y_train, y_test = get_test_train_split(
-        csv_root=data_root,
-        csv_filenames=csv_filenames,
-        n_samples=n_samples, test_size=test_ratio, random_state=random_seed
-    )
+    if RUN_TYPE == "new" or RUN_TYPE == "load":
+        # dataset read
+        X_train, X_test, y_train, y_test = get_test_train_split(
+            csv_root=data_root,
+            csv_filenames=csv_filenames,
+            n_samples=n_samples, test_size=test_ratio, random_state=random_seed
+        )
+    elif RUN_TYPE == "test":
+        # dataset read
+        X_test, y_test = get_test_set(
+            csv_root=data_root,
+            csv_filenames=csv_filenames_test,
+            n_samples=n_samples, random_state=random_seed
+        )
 
-    if NEW_RUN:
+    if RUN_TYPE == "new":
         # image read
         X_img_train = load_image(image_path_root=data_root,
                                  image_paths=X_train, output_dim=image_output_dim)
@@ -276,7 +295,8 @@ if __name__ == "__main__":
 
         # save model as pickle
         save_model(model=the_cnn, save_root=save_root, save_filename=None)
-    else:
+
+    elif RUN_TYPE == "load" or RUN_TYPE == "test":
         # predict
         # image read
         X_img_test = load_image(image_path_root=data_root,
