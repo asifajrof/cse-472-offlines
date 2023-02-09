@@ -241,13 +241,13 @@ def macro_f1_score(y_true, y_pred):
     return f1
 
 
-def get_confusion_matrix(y_true, y_pred, labels):
+def get_confusion_matrix(y_true, y_pred):
     # y_true: (n_samples,n_classes)
     # y_pred: (n_samples,n_classes)
     # confusion_matrix: (n_classes,n_classes)
     y_true = np.argmax(y_true, axis=1)
     y_pred = np.argmax(y_pred, axis=1)
-    cm = confusion_matrix(y_true=y_true, y_pred=y_pred, labels=labels)
+    cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
     return cm
 
 # ===================================================================================================================
@@ -1137,11 +1137,15 @@ if __name__ == "__main__":
         plt.plot(val_f1, label='val_f1')
         plt.xlabel('epoch')
         plt.legend()
-        plt.show()
+        save_plot_filename = f"plot_model_{n_samples}-samples_{test_ratio}-test_ratio_{random_seed}-random_seed_{n_epochs}-epochs_{batch_size}-batch_size.pdf"
+        # plt.show()
+        Path(save_root).mkdir(parents=True, exist_ok=True)
+        save_plot_filepath = Path(save_root) / Path(save_plot_filename)
+        plt.savefig(f'{save_plot_filepath}', dpi=300)
         plt.close()
 
         cm = get_confusion_matrix(
-            y_true=y_test_one_hot, y_pred=final_pred, labels=labels)
+            y_true=y_test_one_hot, y_pred=final_pred)
         print(f'confusion matrix:\n{cm}')
 
         # save model as pickle
@@ -1166,5 +1170,5 @@ if __name__ == "__main__":
         print(f'testing f1 score: {f1}')
 
         cm = get_confusion_matrix(
-            y_true=y_test_one_hot, y_pred=y_pred, labels=labels)
+            y_true=y_test_one_hot, y_pred=y_pred)
         print(f'confusion matrix:\n{cm}')
