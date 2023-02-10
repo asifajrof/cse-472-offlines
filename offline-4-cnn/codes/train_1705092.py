@@ -19,22 +19,17 @@ import pickle
 random_seed = 0
 np.random.seed(random_seed)
 test_ratio = 0.2
-n_samples = 100
+n_samples = 45000
 n_epochs = 10
-batch_size = 8
+batch_size = 64
 learning_rate = 0.001
 
-# data_root = "../NumtaDB/"
-data_root = "../Assignment4-Materials/NumtaDB_with_aug"
+data_root = "./NumtaDB/"
 csv_filenames = [
     "training-a.csv",
     "training-b.csv",
     "training-c.csv",
-    # "training-d.csv",
-    # "training-e.csv"
 ]
-
-save_root = "../saved/"
 
 image_output_dim = (32, 32)
 lenet_model_params = [
@@ -82,6 +77,8 @@ lenet_model_params = [
     }
 ]
 
+save_root = "./saved/"
+
 # ===================================================================================================================
 # utils.py
 # ===================================================================================================================
@@ -93,8 +90,6 @@ def read_all_csv(csv_root, csv_filenames):
     for filename in csv_filenames:
         csv_path = Path(csv_root) / Path(filename)
         df = pd.read_csv(csv_path)
-        # print(df.shape)
-        # merge without append
         merged_df = pd.concat([merged_df, df], ignore_index=True)
 
     return merged_df
@@ -103,10 +98,7 @@ def read_all_csv(csv_root, csv_filenames):
 def get_dataset(df, n_samples=5000, random_state=42):
     if n_samples > len(df):
         n_samples = len(df)
-    # get labels -> digit
-    # get filepaths -> "database name" + "filename"
     dataset_df = df[["digit", "database name", "filename"]]
-    # get random n samples
     dataset_df = dataset_df.sample(n=n_samples, random_state=random_state)
     return dataset_df
 
@@ -119,7 +111,6 @@ def get_test_train_split(csv_root, csv_filenames, n_samples=5000, test_size=0.2,
     X = dataset_df["database name"] + "/" + dataset_df["filename"]
     y = dataset_df["digit"]
 
-    # stratify
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=random_state, stratify=y)
 
@@ -135,21 +126,29 @@ def get_test_set(csv_root, csv_filenames, n_samples=5000, random_state=42):
     return X, y
 
 
-def load_image(image_path_root, image_paths, output_dim=(28, 28)):
+def load_image_paths(dir_path):
+    image_paths = []
+    for path in Path(dir_path).iterdir():
+        image_paths.append(path.name)
+    return image_paths
+
+
+def load_images(image_path_root, image_paths, output_dim=(28, 28)):
     images = []
     for image_path in tqdm(image_paths):
         try:
             # read image
             str_image_path = str(Path(image_path_root)/Path(image_path))
             image = cv2.imread(str_image_path)
-            # black ink on white page. invert
+            # greyscale
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # invert
             image = 255 - image
             # erosion and dilation
             kernel = np.ones((5, 5), np.uint8)
-            image = cv2.erode(image, kernel, iterations=1)
+            # image = cv2.erode(image, kernel, iterations=1)
             image = cv2.dilate(image, kernel, iterations=1)
-            # threshold otsu -> greyscaled
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # threshold otsu
             _, image = cv2.threshold(
                 image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             # resize
@@ -169,8 +168,6 @@ def load_image(image_path_root, image_paths, output_dim=(28, 28)):
 
 
 def view_image_info(X, y, images, index):
-    # print(f'file: {X.iloc[index]}')
-    # print(f'label: {y.iloc[index]}')
     # channel, height, width
     image = images[index].transpose(1, 2, 0)
     plt.title(f'file: {X.iloc[index]}, label: {y.iloc[index]}')
@@ -204,12 +201,7 @@ def accuracy(y_true, y_pred):
     # acc: scalar
     y_true = np.argmax(y_true, axis=1)
     y_pred = np.argmax(y_pred, axis=1)
-    acc = np.sum(y_pred == y_true) / y_pred.shape[0]
     sklearn_acc = accuracy_score(y_true, y_pred)
-    try:
-        assert acc == sklearn_acc
-    except AssertionError:
-        print(f'AssertionError: acc: {acc}, sklearn_acc: {sklearn_acc}')
     return sklearn_acc
 
 
@@ -876,13 +868,12 @@ def create_model(model_params):
 
 
 def save_model(model, save_root, save_filename):
-    # pathlib Path make dir if not exist
     Path(save_root).mkdir(parents=True, exist_ok=True)
     save_path = Path(save_root) / Path(save_filename)
     with open(save_path, "wb") as f:
         pickle.dump(model, f)
 
-    print(f"Model saved to {save_path}")
+    print(f"Saved to {save_path}")
 
 
 def load_model(load_root, load_filename):
@@ -890,7 +881,7 @@ def load_model(load_root, load_filename):
     with open(load_path, "rb") as f:
         model = pickle.load(f)
 
-    print(f"Model loaded from {load_path}")
+    print(f"Loaded from {load_path}")
     return model
 
 
@@ -958,6 +949,18 @@ def predict_model(model, X, y):
     return forward_output, loss, acc, f1
 
 
+def test_predict_model(model, X):
+    # X: (n_samples, n_channels, height, width)
+    print(f'Predicting {X.shape[0]} samples...')
+    # forward
+    forward_output = X
+    for layer in tqdm(model):
+        forward_output = layer.forward(input=forward_output, inference=True)
+
+    # return the digit
+    return np.argmax(forward_output, axis=1)
+
+
 if __name__ == "__main__":
     the_cnn = create_model(model_params=lenet_model_params)
     # dataset read
@@ -968,10 +971,10 @@ if __name__ == "__main__":
     )
 
     # image read
-    X_img_train = load_image(image_path_root=data_root,
-                             image_paths=X_train, output_dim=image_output_dim)
-    X_img_test = load_image(image_path_root=data_root,
-                            image_paths=X_test, output_dim=image_output_dim)
+    X_img_train = load_images(image_path_root=data_root,
+                              image_paths=X_train, output_dim=image_output_dim)
+    X_img_test = load_images(image_path_root=data_root,
+                             image_paths=X_test, output_dim=image_output_dim)
     # one hot encoding
     y_train_one_hot = one_hot_encoding(y_train)
     y_test_one_hot = one_hot_encoding(y_test)
@@ -990,6 +993,7 @@ if __name__ == "__main__":
             batch_size=batch_size, learning_rate=learning_rate)
         train_loss.append(loss)
         train_accuracy.append(acc)
+        print(f'train loss: {loss}, train accuracy: {acc}')
 
         # predict
         y_pred, loss, acc, f1 = predict_model(
@@ -997,6 +1001,7 @@ if __name__ == "__main__":
         val_loss.append(loss)
         val_accuracy.append(acc)
         val_f1.append(f1)
+        print(f'val loss: {loss}, val accuracy: {acc}, val f1: {f1}')
 
         if i == n_epochs - 1:
             final_pred = y_pred
@@ -1005,7 +1010,7 @@ if __name__ == "__main__":
         y_true=y_test_one_hot, y_pred=final_pred)
 
     # save model as pickle
-    save_model_filename = f"model_{n_samples}-samples_{test_ratio}-test_ratio_{random_seed}-random_seed_{n_epochs}-epochs_{batch_size}-batch_size.pkl"
+    save_model_filename = f"1705092_model.pkl"
     save_model(model=the_cnn, save_root=save_root,
                save_filename=save_model_filename)
 
@@ -1019,6 +1024,6 @@ if __name__ == "__main__":
         'val_f1': val_f1,
         'confusion_matrix': cm
     }
-    save_metrics_filename = f"metrics_{n_samples}-samples_{test_ratio}-test_ratio_{random_seed}-random_seed_{n_epochs}-epochs_{batch_size}-batch_size.pkl"
+    save_metrics_filename = f"1705092_train_metrics.pkl"
     save_model(model=metrics, save_root=save_root,
                save_filename=save_metrics_filename)
