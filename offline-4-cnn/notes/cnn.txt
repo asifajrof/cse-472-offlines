@@ -1,0 +1,109 @@
+// plain text
+X -> input of convolution layer
+dz -> right_grad 
+
+dw
+db
+dx -> left_grad
+
+convolution:
+dw = conv(X, dz)
+
+db = sum(dz)
+
+dx = conv(dz_, rot(kernel))
+
+dz_ = pad(dz, kernel_size - 1)
+
+
+// pad
+X -> padded_X
+
+// stride
+
+dz -> dilate(dz)
+
+
+input 12,12
+p = 1
+k 4,4
+s = 3
+
+12+2*1-4 = 10
+10/3 = 3
+3+1 = 4
+
+output 4,4
+
+dz -> 4,4
+dilate -> 3-1 = 2
+3*2 = 6
+dz_ -> 10,10
+padded_X -> 14,14
+14-10 +1 = 5
+
+14
+
+1-4
+4-7
+7-10
+10-13 (14 left)
+
+
+
+
+
+
+
+
+dz input e ashche
+
+db = sum(dz)
+
+dz ke dilate korbi, stride - 1
+
+X (padded input)
+dilated_dz
+
+dw = conv(X, dilated_dz)
+
+padded_dilated_dz = dilated_dz niye pad korbi kernel_size - 1
+rot_kernel = kernel niye rotate korbi 180
+
+dx = conv(padded_dilated_dz, rot_kernel)
+dx.shape == X.shape
+
+if input e padding > 0
+    dx theke padding drop korbo
+    slicing kore outside er gula falay dibi
+    dx = dx[:,:,padding:-padding, padding:-padding]
+
+
+
+maxpooling
+forward
+
+X -> strided X
+    shape=(
+        batch_size,
+        channel,
+        out_h,
+        out_w,
+        kernel_size,
+        kernel_size
+    )
+    stride=(
+
+    )
+
+np.max()
+
+backward
+# special case -> stride = kernel_size
+see code
+
+# general case
+
+
+
+
